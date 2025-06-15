@@ -22,7 +22,9 @@ from ..base import (
     scale_keypoints,
 )
 from hailo_toolbox.inference.core import CALLBACK_REGISTRY
-from hailo_toolbox.process.postprocessor.centerpose_postprocessing import centerpose_postprocessing
+from hailo_toolbox.process.postprocessor.centerpose_postprocessing import (
+    centerpose_postprocessing,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -772,6 +774,7 @@ class OpenPosePosePostprocessor(BasePostprocessor):
             raise ValueError(
                 f"Maximum persons must be positive, got {self.config.kp_max_persons}"
             )
+
     NODE_LOCAL_DICT = {
         (160, 1): 0,
         (160, 2): 1,
@@ -800,20 +803,19 @@ class OpenPosePosePostprocessor(BasePostprocessor):
             ValueError: If output format is not supported
             RuntimeError: If postprocessing fails
         """
-        # try:
-        
-        results = centerpose_postprocessing(raw_outputs)
-        
-        return KeypointResult(
-            keypoints=results["keypoints"],
-            scores=results["scores"],
-            boxes=results["bboxes"],
-            joint_scores=results["joint_scores"],
-        )
+        try:
+            results = centerpose_postprocessing(raw_outputs)
 
-        # except Exception as e:
-        #     logger.error(f"Error in OpenPose postprocessing: {str(e)}")
-        #     raise RuntimeError(f"OpenPose postprocessing failed: {str(e)}") from e
+            return KeypointResult(
+                keypoints=results["keypoints"],
+                scores=results["scores"],
+                boxes=results["bboxes"],
+                joint_scores=results["joint_scores"],
+            )
+
+        except Exception as e:
+            logger.error(f"Error in OpenPose postprocessing: {str(e)}")
+            raise RuntimeError(f"OpenPose postprocessing failed: {str(e)}") from e
 
     def _extract_heatmaps_and_pafs(
         self, raw_outputs: Dict[str, np.ndarray]

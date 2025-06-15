@@ -6,6 +6,8 @@ from logging import getLogger
 from glob import glob
 import cv2
 import numpy as np
+from .onnx import Onnx2Hef
+from .tflite import TensorFlowConverter
 from hailo_sdk_client.model_translator.exceptions import (
     MisspellNodeError,
     ParsingWithRecommendationException,
@@ -22,19 +24,16 @@ class HailoConverter(BaseConverter):
     def __init__(
         self,
         model_path: str,
-        output_path: Optional[str] = None,
-        framework: Optional[str] = None,
-        hw_arch: Optional[str] = None,
-        har: Optional[str] = None,
-        script: Optional[Union[str, Path]] = None,
+        hw_arch: Union[str] = "hailo8",
+        model_script: Optional[Union[str, Path]] = None,
         calibration_dataset: Optional[Union[str, Path]] = None,
         calibration_dataset_size: int = 100,
+        save_onnx: bool = False,
         height: int = 224,
         width: int = 224,
         rgb: bool = True,
     ):
-        super().__init__(model_path, output_path, framework, hw_arch, har)
-        self.script = script
+        super().__init__(model_path, hw_arch, save_onnx, model_script)
         self.calibration_dataset = calibration_dataset
         self.calibration_dataset_size = calibration_dataset_size
         self.set_calibration_dataset(calibration_dataset, height, width, rgb)
@@ -73,7 +72,12 @@ class HailoConverter(BaseConverter):
                 )
 
     def convert(self):
-        pass
+        if self.framework == "onnx":
+            self.onnx_to_har()
+        elif self.framework == "tflite":
+            self.tf_to_har()
+        else:
+            raise ValueError(f"Unsupported framework: {self.framework}")
 
     def onnx_to_har(
         self,
@@ -88,42 +92,51 @@ class HailoConverter(BaseConverter):
         net_input_format: Optional[str] = None,
         **kwargs,
     ):
-        if onnx_file:
-            self.set_onnx_file(onnx_file)
-
         try:
-            self.runner.translate_onnx_model(
-                model=self.onnx_file,
-                net_name=model_name,
-                start_node_names=start_node_names,
-                end_node_names=end_node_names,
-                net_input_shapes=net_input_shapes,
-                augmented_path=augmented_path,
-                disable_shape_inference=disable_shape_inference,
-                disable_rt_metadata_extraction=disable_rt_metadata_extraction,
-                net_input_format=net_input_format,
-                **kwargs,
-            )
-        except ParsingWithRecommendationException as e:
-            end_nodes = str(e).split(": ")[-1].split(", ")
-            self.runner.translate_onnx_model(
-                model=self.onnx_file,
-                net_name=model_name,
-                start_node_names=start_node_names,
-                end_node_names=end_nodes,
-                net_input_shapes=net_input_shapes,
-                augmented_path=augmented_path,
-                disable_shape_inference=disable_shape_inference,
-                disable_rt_metadata_extraction=disable_rt_metadata_extraction,
-                net_input_format=net_input_format,
-                **kwargs,
-            )
-        else:
-            raise e
+            from hailo_sdk_client import ClientRunner
+            import onnx
+        except ImportError as ie:
+            logger.error(ie)
+            logger.warning("Please install hailo-sdk-client to use this function.")
 
-        self.runner.save_har(self.onnx_file.with_suffix(".har"))
+        runner = ClientRunner(hw_arch=self.target_arch)
+        onnx_model_graph_info = self.get_onnx_info()
+        net_input_shapes = {
+            name: shape
+            for name, shape in zip(
+                onnx_model_graph_info["start_nodes_name"],
+                onnx_model_graph_info["inputs_shape"],
+            )
+        }
 
-        self.set_har_file(self.onnx_file.with_suffix(".har"))
+        # load onnx model
+        runner.translate_onnx_model(
+            self.onnx_file,
+            start_node_names=onnx_model_graph_info["start_nodes_name"],
+            end_node_names=onnx_model_graph_info["end_nodes_name"],
+            net_input_shapes=net_input_shapes,
+        )
+
+        # generate calibration datasets
+        calibrat_datasets = self.generate_calibrat_datasets(
+            image_dir=self.image_dir, image_shape=self.input_shape
+        )
+
+        runner.load_model_script(self.model_script)
+        runner.optimize(calibrat_datasets)
+
+        # compile model
+        hef_model = runner.compile()
+        # save hef model
+        self.save_model(hef_model, self.model_path.with_suffix(".hef"))
+        # save model
+        if self.save_onnx:
+            onnx_model_for_hailo = runner.get_hailo_runtime_model()
+            onnx.save(
+                onnx_model_for_hailo,
+                self.model_path.with_suffix("_hailo.onnx"),
+            )
+        return self.model_path.with_suffix(".hef")
 
     def tf_to_har(
         self,

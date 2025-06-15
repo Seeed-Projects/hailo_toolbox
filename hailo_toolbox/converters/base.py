@@ -31,7 +31,12 @@ class BaseConverter(ABC):
     """
 
     def __init__(
-        self, model_path: str, framework: str, hw_arch: str, har: str, **kwargs
+        self,
+        model_path: str,
+        hw_arch: str,
+        save_onnx: bool = False,
+        model_script: Optional[Union[str, Path]] = None,
+        **kwargs,
     ):
         """
         Initialize the base converter.
@@ -43,20 +48,23 @@ class BaseConverter(ABC):
             **kwargs: Additional framework-specific parameters.
         """
         self.model_path = model_path
-        self.framework = framework
+        assert model_path.endswith((".onnx", ".tflite"))
+        self.framework = "onnx" if model_path.endswith(".onnx") else "tflite"
         self.hw_arch = hw_arch
-        self.har = har
+        self.save_onnx = save_onnx
         self.set_origin_model_file()
+
+        self.load_model_script(model_script)
 
         self._onnx_file = None
         self._har_file = None
         self._hn_file = None
         self._tf_file = None
 
-        logger.debug("初始化转换器: framework=%s, hw_arch=%s", framework, hw_arch)
+        logger.debug("初始化转换器: framework=%s, hw_arch=%s", self.framework, hw_arch)
         self._validate_and_prepare()
 
-        self.runner = ClientRunner(hn=model_path, hw_arch=hw_arch, har=har)
+        self.runner = ClientRunner(hn=model_path, hw_arch=hw_arch)
 
     def _validate_and_prepare(self):
         """
@@ -64,6 +72,25 @@ class BaseConverter(ABC):
         """
         if not os.path.exists(self.model_path):
             raise FileNotFoundError(f"模型文件不存在: {self.model_path}")
+
+    def load_model_script(self, model_script: Optional[Union[str, Path]]) -> None:
+        if model_script is None:
+            self.model_script = "normalization1 = normalization([0,0,0],[255,255,255])"
+            return
+        if isinstance(model_script, str):
+            if os.path.exists(model_script):
+                with open(model_script, "r") as f:
+                    self.model_script = f.read()
+            else:
+                self.model_script = model_script
+        elif isinstance(model_script, Path):
+            if model_script.exists():
+                with open(model_script, "r") as f:
+                    self.model_script = f.read()
+            else:
+                raise FileNotFoundError(f"model_script: {model_script} not found")
+        else:
+            raise ValueError("model_script must be a string or a Path object")
 
     def set_origin_model_file(self) -> None:
         if isinstance(self.model_path, str):
