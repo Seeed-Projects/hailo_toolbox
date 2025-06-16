@@ -4,19 +4,6 @@ import sys
 os.environ["HAILO_MONITOR"] = "1"
 
 from typing import Tuple, Callable
-from hailo_platform import (
-    HEF,
-    VDevice,
-    ConfigureParams,
-    InputVStreamParams,
-    OutputVStreamParams,
-    InputVStreams,
-    OutputVStreams,
-    HailoSchedulingAlgorithm,
-    FormatType,
-    HailoStreamInterface,
-    InferVStreams,
-)
 import numpy as np
 from hailo_toolbox.utils.logging import get_logger
 from hailo_toolbox.inference.format import NodeInfo
@@ -31,6 +18,23 @@ from threading import Thread
 
 
 logger = get_logger(__file__)
+
+try:
+    from hailo_platform import (
+        HEF,
+        VDevice,
+        ConfigureParams,
+        InputVStreamParams,
+        OutputVStreamParams,
+        InputVStreams,
+        OutputVStreams,
+        HailoSchedulingAlgorithm,
+        FormatType,
+        HailoStreamInterface,
+        InferVStreams,
+    )
+except ImportError:
+    logger.error("hailo_platform not found")
 
 
 class HailoInference:

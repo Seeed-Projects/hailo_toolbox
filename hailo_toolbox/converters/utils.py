@@ -12,9 +12,9 @@ def load_calibration_images(
     Load image files and process them into specified shape
     """
     if isinstance(image_shape, str):
-        c, h, w = [int(s) for s in image_shape.split(",")]
+        h, w, c = [int(s) for s in image_shape.split(",")]
     else:
-        c, h, w = image_shape
+        h, w, c = image_shape
 
     # Get all image file paths
     image_files = []

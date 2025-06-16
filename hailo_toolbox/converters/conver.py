@@ -6,8 +6,8 @@ from logging import getLogger
 from glob import glob
 import cv2
 import numpy as np
-from .onnx import Onnx2Hef
-from .tflite import TensorFlowConverter
+from .onnx2hef import Onnx2Hef
+from .tf2hef import TensorFlowConverter
 from hailo_sdk_client.model_translator.exceptions import (
     MisspellNodeError,
     ParsingWithRecommendationException,

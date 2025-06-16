@@ -3,7 +3,6 @@ Module for converting deep learning models to ONNX format.
 """
 
 from .base import BaseConverter
-from .pytorch import PyTorchConverter
-from .tflite import TensorFlowConverter
+from .tf2hef import TensorFlowConverter
 
-__all__ = ["BaseConverter", "PyTorchConverter", "TensorFlowConverter"]
+__all__ = ["BaseConverter", "TensorFlowConverter"]

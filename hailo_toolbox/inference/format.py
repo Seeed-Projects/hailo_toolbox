@@ -1,4 +1,6 @@
+# try:
 from hailo_platform.pyhailort._pyhailort import StreamInfo
+
 
 
 class NodeInfo:
