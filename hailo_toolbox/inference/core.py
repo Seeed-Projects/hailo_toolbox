@@ -462,7 +462,7 @@ class CallbackRegistry:
             raise ValueError("At least one name must be provided")
         return self.register(list(names), CallbackType.SOURCE)
 
-    def registryCollatInfer(self, *names: str) -> Callable:
+    def registryCollateInfer(self, *names: str) -> Callable:
         """
         Convenient decorator for registering collaborative inference components with multiple names.
 
@@ -474,12 +474,12 @@ class CallbackRegistry:
 
         Example:
             # Single name
-            @CALLBACK_REGISTRY.registryCollatInfer("yolov8det")
+            @CALLBACK_REGISTRY.registryCollateInfer("yolov8det")
             def collat_infer_func(data):
                 return results
 
             # Multiple names
-            @CALLBACK_REGISTRY.registryCollatInfer("yolov8det", "yolov8seg")
+            @CALLBACK_REGISTRY.registryCollateInfer("yolov8det", "yolov8seg")
             def yolo_collat_infer_func(data):
                 return results
         """
@@ -542,7 +542,7 @@ class InferenceEngine:
         engine.run()
     """
 
-    def __init__(self, config: Config, callback_name: AnyStr) -> None:
+    def __init__(self, config: Config, callback_name: Optional[AnyStr] = None) -> None:
         """
         Initialize the inference engine with configuration and callback settings.
 
@@ -551,6 +551,17 @@ class InferenceEngine:
             callback_name: Identifier for callback lookup in the registry
         """
         self.callback_name = callback_name
+        if callback_name is None:
+            self.preprocess_name = None
+            self.postprocess_name = None
+            self.visualization_name = None
+            self.collate_infer_name = None
+        else:
+            self.preprocess_name = callback_name
+            self.postprocess_name = callback_name
+            self.visualization_name = callback_name
+            self.collate_infer_name = callback_name
+
         self.config = config
 
         # Determine inference mode and backend type
@@ -567,9 +578,11 @@ class InferenceEngine:
 
         self.task_type = self.config.task_type
         self.callback_registry = CALLBACK_REGISTRY
+        self.initialized = False
 
         # Initialize all pipeline components
-        self.init_all()
+        if self.callback_name is not None:
+            self.init_all()
 
     def init_all(self):
         """Initialize all pipeline components in the correct order"""
@@ -579,6 +592,7 @@ class InferenceEngine:
         self.init_postprocess()
         self.init_visualization()
         self.init_callback()
+        self.initialized = True
 
     def init_model(self, model_file: Optional[Any] = None):
         """
@@ -650,6 +664,38 @@ class InferenceEngine:
             self.callback_registry.getCollatInfer(self.callback_name)
         )
 
+    def setting_preprocess(self, task_name: str) -> None:
+        """
+        Setting the preprocess function for the inference engine.
+        """
+        self.preprocess = self.callback_registry.getPreProcessor(task_name)(
+            self.config.preprocess
+        )
+
+    def setting_postprocess(self, task_name: str) -> None:
+        """
+        Setting the postprocess function for the inference engine.
+        """
+        self.postprocess = self.callback_registry.getPostProcessor(task_name)(
+            self.config.postprocess
+        )
+
+    def setting_visualization(self, task_name: str) -> None:
+        """
+        Setting the visualization function for the inference engine.
+        """
+        self.visualization = self.callback_registry.getVisualizer(task_name)(
+            self.config.visualization
+        )
+
+    def setting_callback(self, task_name: str) -> None:
+        """
+        Setting the callback function for the inference engine.
+        """
+        self.callback = self.infer.add_callback(
+            self.callback_registry.getCollateInfer(task_name)
+        )
+
     @classmethod
     def load_from_config(cls, config):
         """
@@ -675,6 +721,9 @@ class InferenceEngine:
         5. Visualization (if enabled)
         6. Output saving (if configured)
         """
+        if not self.initialized:
+            self.init_all()
+
         with self.source as source:
             for frame_idx, frame in enumerate(source):
                 logger.debug(f"Processing frame {frame_idx}, shape: {frame.shape}")

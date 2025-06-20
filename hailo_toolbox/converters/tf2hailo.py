@@ -14,7 +14,7 @@ from hailo_toolbox.utils import get_logger
 logger = get_logger(__name__)
 
 
-class TensorFlowConverter(BaseConverter):
+class TensorFlow2Hailo(BaseConverter):
     """
     Converter for TensorFlow models to ONNX format.
 
@@ -30,6 +30,7 @@ class TensorFlowConverter(BaseConverter):
         image_dir: Optional[str] = None,
         calibration_dataset_size: int = 100,
         input_shape: Optional[Union[List[int], Tuple[int, ...]]] = None,
+        end_nodes: Optional[Tuple[str]] = None,
         **kwargs,
     ):
         """
@@ -42,11 +43,13 @@ class TensorFlowConverter(BaseConverter):
             image_dir: Directory containing calibration images.
             calibration_dataset_size: Size of calibration dataset.
             input_shape: Input shape for the model (batch_size, height, width, channels).
+            end_nodes: End nodes for the model.
             **kwargs: Additional parameters specific to TensorFlow conversion.
         """
         super().__init__(
             model_path, hw_arch, model_script, calibration_dataset_size, **kwargs
         )
+        self.end_nodes = end_nodes
 
         # Handle different model path types
         if os.path.exists(model_path):
@@ -204,7 +207,11 @@ class TensorFlowConverter(BaseConverter):
         runner.translate_tf_model(
             tflite_file,
             start_node_names=self.model_info["start_nodes_name"],
-            end_node_names=self.model_info["end_nodes_name"],
+            end_node_names=(
+                self.end_nodes
+                if self.end_nodes is not None
+                else self.model_info["end_nodes_name"]
+            ),
             tensor_shapes=self.model_info["inputs_shape"],
         )
         logger.info("Model translation completed")
@@ -233,7 +240,7 @@ class TensorFlowConverter(BaseConverter):
 
 if __name__ == "__main__":
     # Example usage
-    converter = TensorFlowConverter(
+    converter = TensorFlow2Hailo(
         model_path="/home/dq/github/hailo_tutorials/models/dense_example_tf2"
     )
     hef_path = converter.convert()

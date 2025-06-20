@@ -222,20 +222,19 @@ def centerpose_postprocessing(
     integrated_postprocessing=None,
     **kwargs,
 ):
-
     nodes_tmp = [0 for _ in range(len(endnodes))]
     for node in endnodes.values():
         if node.shape[-1] == 1:
             nodes_tmp[0] = node
-        elif node.shape[-1] == 2 and isinstance(nodes_tmp[5],int):
+        elif node.shape[-1] == 2 and isinstance(nodes_tmp[5], int):
             nodes_tmp[5] = node
         elif node.shape[-1] == 34:
             nodes_tmp[2] = node
-        elif node.shape[-1] == 2 and isinstance(nodes_tmp[3],int):
+        elif node.shape[-1] == 2 and isinstance(nodes_tmp[3], int):
             nodes_tmp[3] = node
         elif node.shape[-1] == 17:
             nodes_tmp[4] = node
-        elif node.shape[-1] == 2 and isinstance(nodes_tmp[1],int):
+        elif node.shape[-1] == 2 and isinstance(nodes_tmp[1], int):
             nodes_tmp[1] = node
         else:
             raise ValueError(f"Invalid node shape: {node.shape}")
@@ -246,8 +245,7 @@ def centerpose_postprocessing(
         center_offset,
         joint_heatmap,
         joint_offset,
-    ) = nodes_tmp    
-            
+    ) = nodes_tmp
 
     # if not integrated_postprocessing or not integrated_postprocessing.get(
     #     "enabled", True

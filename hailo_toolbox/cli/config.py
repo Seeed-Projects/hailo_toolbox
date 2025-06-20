@@ -35,6 +35,8 @@ def parse_args() -> argparse.Namespace:
         "--hw_arch",
         "-ha",
         type=str,
+        default="hailo8",
+        choices=["hailo8", "hailo8l", "hailo15", "hailo15l"],
         help="Hardware architecture",
     )
 
@@ -63,21 +65,52 @@ def parse_args() -> argparse.Namespace:
         type=str,
         help="Path to the model script",
     )
+    convert_parser.add_argument(
+        "--save-onnx",
+        "--save_onnx",
+        "-so",
+        action="store_true",
+        help="Save the onnx model for hailo hardware",
+    )
+    convert_parser.add_argument(
+        "--end-nodes",
+        "--end_nodes",
+        "-en",
+        type=str,
+        help="End nodes for the model, if not provided, all end nodes will be converted",
+    )
+    convert_parser.add_argument(
+        "--input-shape",
+        "--input_shape",
+        "-is",
+        type=str,
+        help="Input shape for the model",
+    )
+    convert_parser.add_argument(
+        "--output-dir",
+        "--output_dir",
+        "-od",
+        type=str,
+        help="Path to save the converted model, if not provided, the model will be saved in the same directory as the input model",
+    )
+    convert_parser.add_argument(
+        "--profile",
+        "-p",
+        action="store_true",
+        help="Profile the model",
+    )
 
     # Inference subcommand parser
     infer_parser = subparsers.add_parser("infer", help="infer model")
 
     infer_parser.add_argument(
-        "model", type=str, help="Path to the model file (ONNX format)"
-    )
-    infer_parser.add_argument(
-        "--callback",
-        "-c",
+        "model",
+        "--model",
+        "-m",
         type=str,
         required=True,
-        help="Callback name",
+        help="Path to the model file (ONNX format)",
     )
-
     infer_parser.add_argument(
         "--source",
         "-s",
@@ -86,16 +119,19 @@ def parse_args() -> argparse.Namespace:
         help="Path to the source file (video, image, or camera)",
     )
     infer_parser.add_argument(
-        "--save",
-        "-sv",
-        action="store_true",
-        help="Save the output video",
-    )
-    infer_parser.add_argument(
-        "--save-path",
-        "-sp",
+        "--infer-name",
+        "-in",
         type=str,
-        help="Path to save the output video",
+        default="yolob8det",
+        help="Callback name",
+    )
+
+    infer_parser.add_argument(
+        "--save-dir",
+        "--save_dir",
+        "-sd",
+        type=str,
+        help="Path to save the output video, if not provided, the output will not be saved",
     )
     infer_parser.add_argument(
         "--show",

@@ -17,7 +17,7 @@ from hailo_toolbox.converters.base import BaseConverter
 logger = logging.getLogger("hailo")
 
 
-class Onnx2Hef(BaseConverter):
+class Onnx2Hailo(BaseConverter):
     """
     Converter for ONNX models to HEF format.
 
@@ -28,13 +28,13 @@ class Onnx2Hef(BaseConverter):
     def __init__(
         self,
         onnx_file: str = None,
-        arch: str = "hailo8",
+        hw_arch: str = "hailo8",
         input_shape: Optional[Tuple[int, int, int]] = None,
         calibration_dataset_size: int = 100,
         save_onnx: bool = False,
         model_script: str = None,
         image_dir: str = None,
-        end_node: str = None,
+        end_nodes: Optional[Tuple[str]] = None,
     ):
         """
         Initialize the ONNX to HEF converter.
@@ -43,7 +43,7 @@ class Onnx2Hef(BaseConverter):
         ----------
         onnx_file: str
             Path to the ONNX model file (as string)
-        arch: str
+        hw_arch: str
             Target architecture name, default is "hailo8"
         input_shape: Tuple[int, int, int]
             Input shape (height, width, channels), default is None
@@ -55,9 +55,9 @@ class Onnx2Hef(BaseConverter):
             Model script content or path to script file
         image_dir: str
             Path to the image directory for calibration
-        end_node: str
+        end_nodes: str
             End node name for partial model conversion
-            
+
         Attributes
         ----------
         onnx_file: str
@@ -73,14 +73,14 @@ class Onnx2Hef(BaseConverter):
         end_node: str
             End node name
         """
-        super().__init__(onnx_file, arch, model_script, calibration_dataset_size)
-        
+        super().__init__(onnx_file, hw_arch, model_script, calibration_dataset_size)
+
         # Set ONNX file path
         self.set_onnx_file(onnx_file)
-        self.target_arch = arch
+        self.target_arch = hw_arch
         self.save_onnx = save_onnx
         self.image_dir = image_dir
-        self.end_node = end_node
+        self.end_nodes = end_nodes
 
         # Handle input shape
         if input_shape is not None:
@@ -113,7 +113,7 @@ class Onnx2Hef(BaseConverter):
         """
         if not self.validate_onnx(self.onnx_file):
             raise AssertionError("ONNX model is not valid")
-            
+
         onnx_model = onnx.load(self.onnx_file)
         inputs = []
         for i in onnx_model.graph.input:
@@ -166,7 +166,9 @@ class Onnx2Hef(BaseConverter):
         # Load calibration images
         logger.info("Loading calibration images with shape: %s", self.input_shape)
         self.load_calibration_images(self.image_dir, self.input_shape)
-        logger.info("Calibration images loaded: %d samples", len(self.calibrat_datasets))
+        logger.info(
+            "Calibration images loaded: %d samples", len(self.calibrat_datasets)
+        )
 
         # Create network input shapes dictionary
         net_input_shapes = {
@@ -183,9 +185,14 @@ class Onnx2Hef(BaseConverter):
         runner.translate_onnx_model(
             self.onnx_file,
             start_node_names=onnx_model_graph_info["start_nodes_name"],
-            end_node_names=onnx_model_graph_info["end_nodes_name"],
+            end_node_names=(
+                self.end_nodes
+                if self.end_nodes is not None
+                else onnx_model_graph_info["end_nodes_name"]
+            ),
             net_input_shapes=net_input_shapes,
         )
+        runner.save_har(self.har_file)
         logger.info("Model translation completed")
 
         # Load model script for optimization
@@ -216,6 +223,15 @@ class Onnx2Hef(BaseConverter):
 
         return self.hef_file
 
+    def profile(self):
+        try:
+            from hailo_sdk_client import ClientRunner
+        except ImportError as ie:
+            logger.error("Import error: %s", ie)
+            raise ImportError("Please install hailo-sdk-client to use this function.")
+        runner = ClientRunner(har=self.har_file)
+        print(runner.profile(hef_filename=self.hef_file, runtime_data="profile.json"))
+
 
 def get_args():
     """Parse command line arguments."""
@@ -228,11 +244,11 @@ def get_args():
         help="Path to the ONNX model file",
     )
     parser.add_argument(
-        "--input_shape", 
-        "-is", 
-        type=str, 
-        default="48,200,3", 
-        help="Input shape in format height,width,channels"
+        "--input_shape",
+        "-is",
+        type=str,
+        default="48,200,3",
+        help="Input shape in format height,width,channels",
     )
     parser.add_argument(
         "--image_dir",
@@ -242,35 +258,27 @@ def get_args():
         help="Path to the image directory for calibration",
     )
     parser.add_argument(
-        "--end_node", 
-        "-en", 
-        type=str, 
-        default=None, 
-        help="End node name for partial model conversion"
+        "--end_node",
+        "-en",
+        type=str,
+        default=None,
+        help="End node name for partial model conversion",
     )
     parser.add_argument(
-        "--arch", 
-        type=str, 
-        help="Target architecture name", 
-        default="hailo8"
+        "--arch", type=str, help="Target architecture name", default="hailo8"
     )
     parser.add_argument(
-        "--save_onnx",
-        action="store_true",
-        help="Save optimized ONNX model"
+        "--save_onnx", action="store_true", help="Save optimized ONNX model"
     )
     parser.add_argument(
-        "--calibration_size",
-        type=int,
-        default=100,
-        help="Size of calibration dataset"
+        "--calibration_size", type=int, default=100, help="Size of calibration dataset"
     )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = get_args()
-    
+
     # Parse input shape
     input_shape = None
     if args.input_shape:
@@ -283,23 +291,24 @@ if __name__ == "__main__":
         except ValueError as e:
             logger.error("Invalid input shape format: %s", e)
             sys.exit(1)
-    
+
     # Create converter
     converter = Onnx2Hef(
         onnx_file=args.onnx_file,
-        arch=args.arch,
+        hw_arch=args.arch,
         input_shape=input_shape,
         calibration_dataset_size=args.calibration_size,
         save_onnx=args.save_onnx,
         image_dir=args.image_dir,
-        end_node=args.end_node,
+        end_nodes=args.end_node,
     )
-    
+
     # Convert model
-    try:
-        hef_path = converter.convert()
-        print(f"Conversion completed successfully!")
-        print(f"HEF model saved to: {hef_path}")
-    except Exception as e:
-        logger.error("Conversion failed: %s", e)
-        sys.exit(1)
+    # try:
+    # hef_path = converter.convert()
+    print(f"Conversion completed successfully!")
+    # print(f"HEF model saved to: {hef_path}")
+    converter.profile()
+    # except Exception as e:
+    #     logger.error("Conversion failed: %s", e)
+    #     sys.exit(1)

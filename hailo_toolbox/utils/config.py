@@ -1,4 +1,5 @@
 from typing import Dict, Any, AnyStr, Optional
+from dataclasses import dataclass
 
 
 class ConvertConfig:
@@ -94,6 +95,7 @@ class InferConfig:
         return repr(self.__dict__)
 
 
+@dataclass
 class Config:
     command: AnyStr = None
     model: AnyStr = None

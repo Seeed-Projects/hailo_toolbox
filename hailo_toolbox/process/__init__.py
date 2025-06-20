@@ -36,7 +36,11 @@ from .exceptions import (
     ImageProcessingError,
     UnsupportedFormatError,
 )
-from .postprocessor import YOLOv8DetPostprocessor, YOLOv8SegPostprocessor, YOLOv8PosePostprocessor
+from .postprocessor import (
+    YOLOv8DetPostprocessor,
+    YOLOv8SegPostprocessor,
+    YOLOv8PosePostprocessor,
+)
 from .callback import *
 from .visualization import *
 

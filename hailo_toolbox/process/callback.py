@@ -31,7 +31,7 @@ class YOLOv8DetCallback(BaseCallback):
         pass
 
 
-@CALLBACK_REGISTRY.registryCollatInfer("yolov8det", "yolo11det")
+@CALLBACK_REGISTRY.registryCollateInfer("yolov8det", "yolo11det")
 def yolov8_det_callback(results: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
     results_new = {}
     for key, value in results.items():

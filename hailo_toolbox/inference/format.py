@@ -2,7 +2,6 @@
 from hailo_platform.pyhailort._pyhailort import StreamInfo
 
 
-
 class NodeInfo:
     __solts__ = ["_" + attr for attr in dir(StreamInfo) if "__" not in attr]
 

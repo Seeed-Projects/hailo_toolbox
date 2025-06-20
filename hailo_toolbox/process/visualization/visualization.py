@@ -1053,7 +1053,7 @@ class SegmentationVisualization(BaseVisualization):
             )
 
 
-@CALLBACK_REGISTRY.registryVisualizer("yolov8pe","openpose")
+@CALLBACK_REGISTRY.registryVisualizer("yolov8pe", "openpose")
 class KeypointVisualization(BaseVisualization):
     """
     Specialized visualization class for keypoint detection results.
@@ -1203,7 +1203,6 @@ class KeypointVisualization(BaseVisualization):
                     and joint0 < len(kpts_2d)
                     and joint1 < len(kpts_2d)
                 ):
-
                     pt1 = (int(kpts_2d[joint0][0]), int(kpts_2d[joint0][1]))
                     pt2 = (int(kpts_2d[joint1][0]), int(kpts_2d[joint1][1]))
 
@@ -2139,7 +2138,6 @@ class Visualization:
                 and keypoints[kp1_idx, 2] > 0.5
                 and keypoints[kp2_idx, 2] > 0.5
             ):
-
                 pt1 = (int(keypoints[kp1_idx, 0]), int(keypoints[kp1_idx, 1]))
                 pt2 = (int(keypoints[kp2_idx, 0]), int(keypoints[kp2_idx, 1]))
 
@@ -2765,7 +2763,6 @@ def visualize_openpose_results(
                 and joint_visible[joint0]
                 and joint_visible[joint1]
             ):
-
                 pt1 = (
                     int(person_keypoints[joint0][0]),
                     int(person_keypoints[joint0][1]),

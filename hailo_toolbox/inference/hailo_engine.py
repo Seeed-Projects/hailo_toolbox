@@ -251,7 +251,6 @@ class HailoInference:
     def init_output_quant_info(self):
         self.output_quant_info = {}
         for info in self.hef.get_output_stream_infos():
-
             self.output_quant_info[info.name] = {
                 "qp_scale": info.quant_info.qp_scale,
                 "qp_zero_point": info.quant_info.qp_zp,
