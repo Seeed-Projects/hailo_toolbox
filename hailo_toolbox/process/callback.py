@@ -42,7 +42,9 @@ def yolov8_det_callback(results: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]
                 if box.shape[0] > 0:
                     box = np.hstack((box, np.full((box.shape[0], 1), c)))
                     batch_new.append(box)
-            batch_new = np.concatenate(batch_new, axis=0)
+            batch_new = (
+                np.concatenate(batch_new, axis=0) if batch_new else np.empty((0, 6))
+            )
         data_new.append(batch_new)
         max_dim = max([box.shape[0] for box in data_new])
         padded_array = []
