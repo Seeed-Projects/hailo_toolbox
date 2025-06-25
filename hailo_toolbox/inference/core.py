@@ -1,13 +1,16 @@
 from typing import Any, List, Optional, AnyStr, Union, Callable, Dict, Type, Iterable
 from enum import Enum
-
-from hailo_toolbox.inference.hailo_engine import HailoInference
-from hailo_toolbox.inference.onnx_engine import ONNXInference
-from hailo_toolbox.utils.config import Config
-import numpy as np
 import logging
 import os
 import os.path as osp
+from multiprocessing import Process, Queue
+
+import numpy as np
+from hailo_toolbox.inference.hailo_engine import HailoInference
+from hailo_toolbox.inference.onnx_engine import ONNXInference
+from hailo_toolbox.utils.config import Config
+from hailo_toolbox.utils.sharememory import ShareMemoryManager
+from hailo_toolbox.utils.timer import Timer
 
 
 logger = logging.getLogger(__name__)
@@ -20,7 +23,7 @@ class CallbackType(Enum):
     POST_PROCESSOR = "post_processor"
     VISUALIZER = "visualizer"
     SOURCE = "source"
-    COLLAT_INFER = "collat_infer"
+    COLLATE_INFER = "collate_infer"
 
 
 def empty_callback(args) -> None:
@@ -81,7 +84,7 @@ class CallbackRegistry:
         self.PostProcessor: Dict[str, Callable] = {}
         self.Visualizer: Dict[str, Callable] = {}
         self.Source: Dict[str, Callable] = {}
-        self.CollatInfer: Dict[str, Callable] = {}
+        self.CollateInfer: Dict[str, Callable] = {}
 
     def register(
         self, names: Union[str, List[str]], callback_type: CallbackType
@@ -195,8 +198,8 @@ class CallbackRegistry:
             self.Visualizer[name] = callback
         elif callback_type == CallbackType.SOURCE:
             self.Source[name] = callback
-        elif callback_type == CallbackType.COLLAT_INFER:
-            self.CollatInfer[name] = callback
+        elif callback_type == CallbackType.COLLATE_INFER:
+            self.CollateInfer[name] = callback
 
     def get_callback(
         self, name: str, callback_type: CallbackType, default: Optional[Callable] = None
@@ -331,10 +334,10 @@ class CallbackRegistry:
                 elif callback_type == CallbackType.SOURCE and name in self.Source:
                     del self.Source[name]
                 elif (
-                    callback_type == CallbackType.COLLAT_INFER
-                    and name in self.CollatInfer
+                    callback_type == CallbackType.COLLATE_INFER
+                    and name in self.CollateInfer
                 ):
-                    del self.CollatInfer[name]
+                    del self.CollateInfer[name]
 
                 logger.debug(
                     f"Unregistered callback '{name}' for type '{callback_type.value}'"
@@ -475,17 +478,17 @@ class CallbackRegistry:
         Example:
             # Single name
             @CALLBACK_REGISTRY.registryCollateInfer("yolov8det")
-            def collat_infer_func(data):
+            def collate_infer_func(data):
                 return results
 
             # Multiple names
             @CALLBACK_REGISTRY.registryCollateInfer("yolov8det", "yolov8seg")
-            def yolo_collat_infer_func(data):
+            def yolo_collate_infer_func(data):
                 return results
         """
         if not names:
             raise ValueError("At least one name must be provided")
-        return self.register(list(names), CallbackType.COLLAT_INFER)
+        return self.register(list(names), CallbackType.COLLATE_INFER)
 
     # Legacy methods for backward compatibility
     def getPreProcessor(self, name: str) -> Callable:
@@ -504,9 +507,9 @@ class CallbackRegistry:
         """Legacy method - use get_callback instead"""
         return self.get_callback(name, CallbackType.SOURCE)
 
-    def getCollatInfer(self, name: str) -> Callable:
+    def getCollateInfer(self, name: str) -> Callable:
         """Legacy method - use get_callback instead"""
-        return self.get_callback(name, CallbackType.COLLAT_INFER)
+        return self.get_callback(name, CallbackType.COLLATE_INFER)
 
 
 # Global registry instance
@@ -531,58 +534,239 @@ class InferenceEngine:
     - Configurable preprocessing and postprocessing
     - Built-in visualization capabilities
     - Frame-by-frame processing with debugging support
+    - Server mode for process-based inference with shared memory
 
     Args:
-        config: Configuration object containing all pipeline settings
-        callback_name: Name identifier for callback registration lookup
+        model: Path to the model file (.hef for Hailo, .onnx for ONNX)
+        task_name: Name identifier for callback registration lookup
+        command: Command type (e.g., "infer")
+        callback: Callback identifier (default: "yolov8det")
+        convert: Whether to convert model format (default: False)
+        infer: Whether to perform inference (default: False)
+        source: Data source configuration
+        output: Output configuration
+        preprocess: Preprocessing configuration
+        postprocess: Postprocessing configuration
+        visualization: Visualization configuration
+        task_type: Type of task (e.g., "detection", "segmentation")
+        save: Whether to save output (default: False)
+        save_path: Path to save output files
+        show: Whether to display visualization (default: False)
 
-    Example:
-        config = Config(model="model.hef", source="video.mp4", task_type="detection")
+    Example (New Style - Direct Parameters):
+        engine = InferenceEngine(
+            model="model.hef",
+            source="video.mp4",
+            task_type="detection",
+            task_name="yolov8det"
+        )
+        engine.run()
+
+    Example (Legacy Style - Config Object):
+        config = Config()
+        config.model = "model.hef"
+        config.source = "video.mp4"
+        config.task_type = "detection"
         engine = InferenceEngine(config, "yolov8det")
         engine.run()
+
+    Example (Server Mode):
+        import queue
+        import threading
+        import numpy as np
+
+        # Initialize engine (new style)
+        engine = InferenceEngine(
+            model="model.hef",
+            task_type="detection",
+            task_name="yolov8det"
+        )
+
+        # Create queues
+        input_queue = queue.Queue()
+        output_queue = queue.Queue()
+
+        # Start server in separate thread
+        server_thread = threading.Thread(
+            target=engine.as_server_inference,
+            args=(input_queue, output_queue),
+            kwargs={'enable_visualization': True, 'server_timeout': 2.0}
+        )
+        server_thread.start()
+
+        # Process frames
+        frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+
+        # Method 1: Send shared memory name directly
+        shm_name = InferenceEngine.create_frame_shm(frame, {'frame_id': 0})
+        input_queue.put(shm_name)
+
+        # Method 2: Send metadata dictionary
+        input_queue.put({
+            'shm_name': shm_name,
+            'frame_id': 0,
+            'timestamp': time.time(),
+            'source': 'camera_1'
+        })
+
+        # Get results
+        try:
+            result = output_queue.get(timeout=5.0)
+            result_frame = InferenceEngine.load_frame_from_shm(result['shm_name'])
+            inference_results = result['inference_results']
+
+            # Clean up shared memory
+            InferenceEngine.cleanup_shm(result['shm_name'])
+
+        except queue.Empty:
+            print("No result received within timeout")
+
+        # Shutdown server
+        input_queue.put("SHUTDOWN")
+        server_thread.join()
+
+    Server Mode Features:
+        - Shared memory based frame exchange for high performance
+        - Automatic batch processing for improved throughput
+        - Optional visualization rendering
+        - Graceful shutdown handling
+        - Comprehensive error handling and logging
+        - Support for frame metadata and tracking
     """
 
-    def __init__(self, config: Config, callback_name: Optional[AnyStr] = None) -> None:
+    def __init__(
+        self,
+        config: Optional[Config] = None,
+        task_name: AnyStr = "yolov8det",
+        model: Optional[AnyStr] = None,
+        command: Optional[AnyStr] = None,
+        convert: bool = False,
+        infer: bool = False,
+        source: Any = None,
+        output: Any = None,
+        preprocess_config: Any = None,
+        postprocess_config: Any = None,
+        visualization_config: Any = None,
+        task_type: Any = None,
+        save: bool = False,
+        save_dir: Any = None,
+        show: bool = False,
+        **kwargs,
+    ) -> None:
         """
-        Initialize the inference engine with configuration and callback settings.
+        Initialize the inference engine with configuration parameters.
 
         Args:
-            config: Configuration object with model, source, and processing settings
-            callback_name: Identifier for callback lookup in the registry
+            config: Configuration object (for backward compatibility)
+            task_name: Name identifier for callback registration lookup
+            model: Path to the model file (.hef for Hailo, .onnx for ONNX)
+            command: Command type (e.g., "infer")
+            callback: Callback identifier (default: "yolov8det")
+            convert: Whether to convert model format (default: False)
+            infer: Whether to perform inference (default: False)
+            source: Data source configuration
+            output: Output configuration
+            preprocess_config: Preprocessing configuration
+            postprocess_config: Postprocessing configuration
+            visualization_config: Visualization configuration
+            task_type: Type of task (e.g., "detection", "segmentation")
+            save: Whether to save output (default: False)
+            save_dir: Path to save output files
+            show: Whether to display visualization (default: False)
+            **kwargs: Additional keyword arguments
         """
-        self.callback_name = callback_name
-        if callback_name is None:
+        # Handle backward compatibility with Config object
+        if config is not None:
+            # Use Config object values, but allow individual parameters to override
+            self.model = model if model is not None else getattr(config, "model", None)
+            self.command = (
+                command if command is not None else getattr(config, "command", None)
+            )
+            self.task_name = (
+                task_name
+                if task_name is not None
+                else getattr(config, "task_name", "yolov8det")
+            )
+            self.convert = convert if convert else getattr(config, "convert", False)
+            self.infer = infer if infer else getattr(config, "infer", False)
+            self.source = (
+                source if source is not None else getattr(config, "source", None)
+            )
+            self.output = (
+                output if output is not None else getattr(config, "output", None)
+            )
+            self.preprocess_config = (
+                preprocess_config
+                if preprocess_config is not None
+                else getattr(config, "preprocess_config", None)
+            )
+            self.postprocess_config = (
+                postprocess_config
+                if postprocess_config is not None
+                else getattr(config, "postprocess_config", None)
+            )
+            self.visualization_config = (
+                visualization_config
+                if visualization_config is not None
+                else getattr(config, "visualization_config", None)
+            )
+            self.task_type = (
+                task_type
+                if task_type is not None
+                else getattr(config, "task_type", None)
+            )
+            self.save = save if save else getattr(config, "save", False)
+            self.save_dir = (
+                save_dir if save_dir is not None else getattr(config, "save_dir", None)
+            )
+            self.show = show if show else getattr(config, "show", False)
+        else:
+            # Use individual parameters directly
+            self.model = model
+            self.command = command
+            self.convert = convert
+            self.infer = infer
+            self.source = source
+            self.output = output
+            self.preprocess_config = preprocess_config
+            self.postprocess_config = postprocess_config
+            self.visualization_config = visualization_config
+            self.task_type = task_type
+            self.save = save
+            self.save_dir = save_dir
+            self.show = show
+
+        # Set up task-specific callback names
+        self.task_name = task_name
+        if task_name is None:
             self.preprocess_name = None
             self.postprocess_name = None
             self.visualization_name = None
             self.collate_infer_name = None
         else:
-            self.preprocess_name = callback_name
-            self.postprocess_name = callback_name
-            self.visualization_name = callback_name
-            self.collate_infer_name = callback_name
-
-        self.config = config
+            self.preprocess_name = task_name
+            self.postprocess_name = task_name
+            self.visualization_name = task_name
+            self.collate_infer_name = task_name
 
         # Determine inference mode and backend type
-        if self.config.command == "infer":
+        if self.command == "infer":
             self.infer = True
-            if self.config.model.endswith(".hef"):
+            if self.model and self.model.endswith(".hef"):
                 self.infer_type = "hailo"
-            elif self.config.model.endswith(".onnx"):
+            elif self.model and self.model.endswith(".onnx"):
                 self.infer_type = "onnx"
             else:
-                raise ValueError(f"Unsupported model type: {self.config.model}")
+                raise ValueError(f"Unsupported model type: {self.model}")
         else:
             self.infer = False
 
-        self.task_type = self.config.task_type
         self.callback_registry = CALLBACK_REGISTRY
         self.initialized = False
 
         # Initialize all pipeline components
-        if self.callback_name is not None:
-            self.init_all()
+        # if self.task_name is not None:
+        #     self.init_all()
 
     def init_all(self):
         """Initialize all pipeline components in the correct order"""
@@ -601,10 +785,12 @@ class InferenceEngine:
         Args:
             model_file: Optional override for model file path
         """
+        model_path = model_file if model_file else self.model
+
         if self.infer_type == "hailo":
-            self.infer = HailoInference(self.config.model)
+            self.infer = HailoInference(model_path)
         elif self.infer_type == "onnx":
-            self.infer = ONNXInference(self.config.model)
+            self.infer = ONNXInference(model_path)
 
     def init_source(self, source: Optional[Any] = None):
         """
@@ -613,9 +799,7 @@ class InferenceEngine:
         Args:
             source: Optional override for source configuration
         """
-        self.source = self.callback_registry.getSource(self.callback_name)(
-            self.config.source
-        )
+        self.source = self.callback_registry.getSource(self.task_name)(self.source)
 
     def init_preprocess(self, preprocess: Optional[Any] = None):
         """
@@ -624,8 +808,8 @@ class InferenceEngine:
         Args:
             preprocess: Optional override for preprocessing configuration
         """
-        self.preprocess = self.callback_registry.getPreProcessor(self.callback_name)(
-            self.config.preprocess
+        self.preprocess = self.callback_registry.getPreProcessor(self.task_name)(
+            self.preprocess_config
         )
 
     def init_postprocess(self, postprocess: Optional[Any] = None):
@@ -636,10 +820,10 @@ class InferenceEngine:
             postprocess: Optional override for postprocessing configuration
         """
         print(
-            f"postprocess: {self.callback_name},{self.callback_registry.getPostProcessor(self.callback_name).__name__}"
+            f"postprocess: {self.task_name},{self.callback_registry.getPostProcessor(self.task_name).__name__}"
         )
-        self.postprocess = self.callback_registry.getPostProcessor(self.callback_name)(
-            self.config.postprocess
+        self.postprocess = self.callback_registry.getPostProcessor(self.task_name)(
+            self.postprocess_config
         )
 
     def init_visualization(self, visualization: Optional[Any] = None):
@@ -649,8 +833,8 @@ class InferenceEngine:
         Args:
             visualization: Optional override for visualization configuration
         """
-        self.visualization = self.callback_registry.getVisualizer(self.callback_name)(
-            self.config.visualization
+        self.visualization = self.callback_registry.getVisualizer(self.task_name)(
+            self.visualization_config
         )
 
     def init_callback(self, callback: Optional[Any] = None):
@@ -661,7 +845,7 @@ class InferenceEngine:
             callback: Optional override for callback configuration
         """
         self.callback = self.infer.add_callback(
-            self.callback_registry.getCollatInfer(self.callback_name)
+            self.callback_registry.getCollateInfer(self.task_name)
         )
 
     def setting_preprocess(self, task_name: str) -> None:
@@ -669,7 +853,7 @@ class InferenceEngine:
         Setting the preprocess function for the inference engine.
         """
         self.preprocess = self.callback_registry.getPreProcessor(task_name)(
-            self.config.preprocess
+            self.preprocess_config
         )
 
     def setting_postprocess(self, task_name: str) -> None:
@@ -677,7 +861,7 @@ class InferenceEngine:
         Setting the postprocess function for the inference engine.
         """
         self.postprocess = self.callback_registry.getPostProcessor(task_name)(
-            self.config.postprocess
+            self.postprocess_config
         )
 
     def setting_visualization(self, task_name: str) -> None:
@@ -685,7 +869,7 @@ class InferenceEngine:
         Setting the visualization function for the inference engine.
         """
         self.visualization = self.callback_registry.getVisualizer(task_name)(
-            self.config.visualization
+            self.visualization_config
         )
 
     def setting_callback(self, task_name: str) -> None:
@@ -697,17 +881,17 @@ class InferenceEngine:
         )
 
     @classmethod
-    def load_from_config(cls, config):
+    def load_from_config(cls, config_dict):
         """
         Factory method to create InferenceEngine from configuration dictionary.
 
         Args:
-            config: Dictionary containing configuration parameters
+            config_dict: Dictionary containing configuration parameters
 
         Returns:
             InferenceEngine instance initialized with the provided configuration
         """
-        return cls(**config)
+        return cls(**config_dict)
 
     def run(self):
         """
@@ -744,15 +928,15 @@ class InferenceEngine:
                 )
 
                 # Visualize results if enabled
-                if self.config.show:
+                if self.show:
                     vis_image = self.visualization(original_frame, post_results)
 
                     # Save visualization if configured
-                    if self.config.save:
-                        if self.config.save_path is None:
+                    if self.save:
+                        if self.save_dir is None:
                             output_path = "output"
                         else:
-                            output_path = self.config.save_path
+                            output_path = self.save_dir
                         os.makedirs(osp.dirname(output_path), exist_ok=True)
                         output_path = osp.join(
                             output_path, f"output_frame_{frame_idx:04d}.jpg"
@@ -763,6 +947,210 @@ class InferenceEngine:
 
                     # Display visualization
                     self.visualization.show(vis_image, f"show")
+
+    def as_server_inference(
+        self,
+        input_queue: Queue,
+        output_queue: Queue,
+        enable_visualization: bool = False,
+        server_timeout: Optional[float] = None,
+        max_batch_size: int = 1,
+    ):
+        """
+        Execute the complete inference pipeline as a server process.
+
+        This method runs as a server process that continuously processes frames
+        from shared memory. It receives shared memory names through a queue,
+        processes the frames, and puts results back to output queue.
+
+        Args:
+            input_queue: Queue containing shared memory names for input frames
+            output_queue: Queue to put processed results (shared memory names)
+            enable_visualization: Whether to draw visualization on results
+            server_timeout: Timeout for queue operations in seconds
+            max_batch_size: Maximum batch size for processing multiple frames
+
+        Features:
+        - Continuous processing loop for server operation
+        - Shared memory based frame exchange for efficiency
+        - Optional visualization rendering
+        - Batch processing support for improved throughput
+        - Graceful shutdown handling
+        - Comprehensive error handling and logging
+        """
+        if not self.initialized:
+            self.init_all()
+
+        logger.info("Starting inference server process")
+        logger.info(
+            f"Server configuration: visualization={enable_visualization}, timeout={server_timeout}s"
+        )
+
+        frame_count = 0
+        batch_frames = []
+        batch_metadata = []
+
+        try:
+            while True:
+                # try:
+                # Get input frame metadata from queue with timeout
+                frame_metadata = input_queue.get(timeout=server_timeout)
+
+                # Handle shutdown signal
+                if frame_metadata is None or frame_metadata == "SHUTDOWN":
+                    logger.info("Received shutdown signal, stopping server")
+                    break
+
+                frame = self.shm_manager.read(**frame_metadata)
+                # Add to batch
+                batch_frames.append(frame)
+
+                # Process batch when it's full or timeout occurs
+                if len(batch_frames) >= max_batch_size:
+                    with Timer("process_frame_batch"):
+                        self._process_frame_batch(
+                            batch_frames, output_queue, enable_visualization
+                        )
+                    batch_frames.clear()
+
+                frame_count += 1
+
+            # except Queue.Empty:
+            #     # Timeout occurred, process any remaining frames in batch
+            #     if batch_frames:
+            #         logger.debug(f"Processing remaining batch of {len(batch_frames)} frames")
+            #         self._process_frame_batch(
+            #             batch_frames,
+            #             output_queue,
+            #             enable_visualization
+            #         )
+            #         batch_frames.clear()
+            #         batch_metadata.clear()
+            #     continue
+
+            # except Exception as e:
+            #     logger.error(f"Error processing frame: {e}")
+            #     continue
+
+        except KeyboardInterrupt:
+            logger.info("Server interrupted by user")
+        except Exception as e:
+            logger.error(f"Fatal error in server process: {e}")
+        finally:
+            # Process any remaining frames
+            if batch_frames:
+                logger.info(f"Processing final batch of {len(batch_frames)} frames")
+                self._process_frame_batch(
+                    batch_frames, output_queue, enable_visualization
+                )
+
+            logger.info(
+                f"Inference server stopped. Total frames processed: {frame_count}"
+            )
+
+    def _process_frame_batch(
+        self, frames: List[np.ndarray], output_queue: Queue, enable_visualization: bool
+    ):
+        """
+        Process a batch of frames through the inference pipeline.
+
+        Args:
+            frames: List of frames to process
+            output_queue: Queue to put results
+            enable_visualization: Whether to render visualization
+        """
+        for frame in frames:
+            # try:
+            # Store original frame for visualization
+            with Timer("copy_frame"):
+                original_frame = frame.copy()
+
+            # Preprocess frame
+            with Timer("preprocess_frame"):
+                preprocessed_frame = self.preprocess(frame)
+
+            # Run inference
+            with Timer("inference_frame"):
+                results = self.infer.as_process_inference(preprocessed_frame)
+
+            # Postprocess results
+            with Timer("postprocess_frame"):
+                post_results = self.postprocess(
+                    results, original_shape=original_frame.shape[:2]
+                )
+
+            # Prepare result frame
+            if enable_visualization:
+                # Render visualization on frame
+                with Timer("visualization_frame"):
+                    result_frame = self.visualization(original_frame, post_results)
+            else:
+                # Return original frame without visualization
+                result_frame = original_frame
+
+            # Save result to shared memory
+            with Timer("write_result_frame"):
+                result_shm_info = self.shm_manager.write(result_frame, "result_frame")
+
+            if result_shm_info:
+                # Put result to output queue
+                with Timer("put_result_frame"):
+                    output_queue.put(result_shm_info)
+                # logger.debug(f"Processed frame {frame_metadata.get('name', 'unknown')}")
+            else:
+                logger.error(
+                    f"Failed to save result for frame {result_shm_info.get('name', 'unknown')}"
+                )
+        # except Exception as e:
+        #     print(f"Error processing frame: {e}")
+        #     # logger.error(f"Error processing frame {frame_metadata.get('name', 'unknown')}: {e}")
+        #     continue
+
+    def start_server(
+        self,
+        input_queue: Optional[Queue] = None,
+        output_queue: Optional[Queue] = None,
+        enable_visualization: bool = False,
+        queue_size: int = 30,
+        server_timeout: Optional[float] = None,
+        max_batch_size: int = 1,
+    ) -> tuple[Queue, Queue]:
+        """
+        Convenient method to start the inference server with automatic queue creation.
+
+        Args:
+            input_queue: Optional input queue (created if None)
+            output_queue: Optional output queue (created if None)
+            enable_visualization: Whether to enable visualization
+            queue_size: Size of the input and output queues
+            server_timeout: Server timeout in seconds
+            max_batch_size: Maximum batch size for processing
+
+        Returns:
+            Tuple of (input_queue, output_queue) for external use
+        """
+        if input_queue is None:
+            input_queue = Queue(maxsize=queue_size)  # Prevent excessive memory usage
+
+        if output_queue is None:
+            output_queue = Queue(maxsize=queue_size)
+
+        self.shm_manager = ShareMemoryManager()
+
+        # Start server in current thread (or can be modified to use threading/multiprocessing)
+        server_process = Process(
+            target=self.as_server_inference,
+            args=(
+                input_queue,
+                output_queue,
+                enable_visualization,
+                server_timeout,
+                max_batch_size,
+            ),
+        )
+        server_process.start()
+
+        return input_queue, output_queue
 
     def _call_callback(self, callback_type: CallbackType, frame: np.ndarray):
         """
@@ -778,19 +1166,29 @@ class InferenceEngine:
 
 if __name__ == "__main__":
     # Demonstrate the enhanced registry functionality
-    print("Testing callback registry with multiple names:")
+    # print("Testing callback registry with multiple names:")
 
-    # Test getting callback by different names
-    print(f"yolov8det preprocessor: {CALLBACK_REGISTRY.getPreProcessor('yolov8det')}")
-    print(f"yolov8seg preprocessor: {CALLBACK_REGISTRY.getPreProcessor('yolov8seg')}")
+    # # Test getting callback by different names
+    # print(f"yolov8det preprocessor: {CALLBACK_REGISTRY.getPreProcessor('yolov8det')}")
+    # print(f"yolov8seg preprocessor: {CALLBACK_REGISTRY.getPreProcessor('yolov8seg')}")
 
-    # Test that both names point to the same function
-    callback1 = CALLBACK_REGISTRY.getPreProcessor("yolov8det")
-    callback2 = CALLBACK_REGISTRY.getPostProcessor("yolov8seg")
-    print(f"Same callback object: {callback1 is callback2}")
+    # # Test that both names point to the same function
+    # callback1 = CALLBACK_REGISTRY.getPreProcessor("yolov8det")
+    # callback2 = CALLBACK_REGISTRY.getPostProcessor("yolov8seg")
+    # print(f"Same callback object: {callback1 is callback2}")
 
-    # List all shared names
-    shared_names = CALLBACK_REGISTRY.get_shared_names(
-        "yolov8det", CallbackType.PRE_PROCESSOR
+    # # List all shared names
+    # shared_names = CALLBACK_REGISTRY.get_shared_names(
+    #     "yolov8det", CallbackType.PRE_PROCESSOR
+    # )
+    # print(f"Shared names for yolov8det: {shared_names}")
+
+    # # Test server inference functionality
+    # print("\n" + "="*50)
+    # print("Testing server inference functionality:")
+    # print("="*50)
+
+    # Example usage with new constructor
+    infer = InferenceEngine(
+        model="yolov8n.onnx", task_name="yolov8det", command="infer"
     )
-    print(f"Shared names for yolov8det: {shared_names}")

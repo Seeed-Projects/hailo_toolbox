@@ -85,8 +85,8 @@ class VisualizationConfig:
     # Text and font settings
     font_scale: float = 0.6
     font_thickness: int = 2
-    font_color: Tuple[int, int, int] = (255, 255, 255)
-    text_background: bool = True
+    font_color: Tuple[int, int, int] = (0, 255, 0)
+    text_background: bool = False
     text_background_color: Tuple[int, int, int] = (0, 0, 0)
     text_background_alpha: float = 0.7
 
@@ -653,16 +653,16 @@ class DetectionVisualization(BaseVisualization):
             raise TypeError(f"Expected DetectionResult, got {type(results)}")
 
         # Create a copy to avoid modifying the original image
-        vis_image = image.copy()
+        # vis_image = image.copy()
 
         # Visualize detection results
-        vis_image = self._visualize_detection(vis_image, results)
+        image = self._visualize_detection(image, results)
 
         # Convert color format if needed
         if self.config.output_format == "rgb":
-            vis_image = cv2.cvtColor(vis_image, cv2.COLOR_BGR2RGB)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        return vis_image
+        return image
 
     def _visualize_detection(
         self, image: np.ndarray, results: DetectionResult

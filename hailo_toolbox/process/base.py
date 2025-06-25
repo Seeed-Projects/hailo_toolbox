@@ -228,9 +228,9 @@ class KeypointResult:
     keypoints: np.ndarray  # Shape: (N, K, 3) - [x, y, visibility]
     scores: np.ndarray  # Shape: (N,) - person confidence scores
     boxes: Optional[np.ndarray] = None  # Shape: (N, 4) - person bounding boxes
-    joint_scores: Optional[
-        np.ndarray
-    ] = None  # Shape: (N, K, 1) - joint confidence scores
+    joint_scores: Optional[np.ndarray] = (
+        None  # Shape: (N, K, 1) - joint confidence scores
+    )
 
     def __len__(self) -> int:
         return len(self.keypoints)

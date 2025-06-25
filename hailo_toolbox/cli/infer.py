@@ -12,7 +12,8 @@ def main():
     args = parse_args()
     config = Config(vars(args))
     if args.command == "infer":
-        engine = InferenceEngine(config, args.callback)
+        InferenceEngine()
+        engine = InferenceEngine(**vars(args))
         engine.run()
     elif args.command == "convert":
         raise NotImplementedError("Conversion is not implemented yet")
