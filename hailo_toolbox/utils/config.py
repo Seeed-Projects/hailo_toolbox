@@ -6,10 +6,11 @@ from dataclasses import dataclass
 class Config:
     """
     Configuration class for backward compatibility.
-    
+
     This class maintains compatibility with existing code while
     the InferenceEngine now accepts individual parameters directly.
     """
+
     command: Optional[AnyStr] = None
     model: Optional[AnyStr] = None
     task_name: str = "yolov8det"
@@ -28,7 +29,7 @@ class Config:
     def __init__(self, config: Optional[Dict[AnyStr, Any]] = None):
         """
         Initialize configuration with optional dictionary.
-        
+
         Args:
             config: Optional dictionary containing configuration parameters
         """
@@ -38,7 +39,7 @@ class Config:
     def update(self, config: Dict[AnyStr, Any]) -> None:
         """
         Update configuration with dictionary values.
-        
+
         Args:
             config: Dictionary containing configuration parameters to update
         """
@@ -47,13 +48,14 @@ class Config:
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert configuration to dictionary format suitable for InferenceEngine.
-        
+
         Returns:
             Dictionary containing all configuration parameters
         """
         return {
-            key: value for key, value in self.__dict__.items()
-            if not key.startswith('_')
+            key: value
+            for key, value in self.__dict__.items()
+            if not key.startswith("_")
         }
 
     def __getitem__(self, key: AnyStr) -> Any:
@@ -88,6 +90,7 @@ class Config:
 # Legacy classes for backward compatibility
 class ConvertConfig:
     """Legacy class for conversion configuration."""
+
     model: AnyStr = None
     source: Any = None
 
@@ -119,26 +122,31 @@ class ConvertConfig:
 
 class PreprocessConfig:
     """Legacy class for preprocessing configuration."""
+
     pass
 
 
 class PostprocessConfig:
     """Legacy class for postprocessing configuration."""
+
     pass
 
 
 class VisualizationConfig:
     """Legacy class for visualization configuration."""
+
     pass
 
 
 class CallbackConfig:
     """Legacy class for callback configuration."""
+
     pass
 
 
 class InferConfig:
     """Legacy class for inference configuration."""
+
     model: AnyStr = None
     source: Any = None
     output: Any = None
@@ -189,4 +197,4 @@ if __name__ == "__main__":
         }
     )
     print("Config object:", repr(config))
-    print("Config as dict:", config.to_dict()) 
+    print("Config as dict:", config.to_dict())

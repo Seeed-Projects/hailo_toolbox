@@ -105,7 +105,7 @@ class BaseSource(ABC):
             "format": self.format,
         }
 
-    def stream(self) -> Generator[np.ndarray, None, None]:
+    def __next__(self):
         """
         Stream frames from the source.
 
@@ -115,14 +115,11 @@ class BaseSource(ABC):
         if not self.is_opened:
             self.open()
 
-        try:
-            while True:
-                success, frame = self.read()
-                if not success:
-                    break
-                yield frame
-        finally:
+        success, frame = self.read()
+        if not success:
             self.close()
+            raise StopIteration
+        return frame
 
     def __enter__(self):
         """Context manager entry."""
@@ -133,9 +130,9 @@ class BaseSource(ABC):
         """Context manager exit."""
         self.close()
 
-    def __iter__(self) -> Iterator[np.ndarray]:
+    def __iter__(self):
         """Make the source iterable."""
-        return self.stream()
+        return self
 
     @staticmethod
     def create_source(

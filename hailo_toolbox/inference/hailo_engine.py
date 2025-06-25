@@ -36,6 +36,8 @@ try:
 except ImportError:
     logger.error("hailo_platform not found")
 
+POISON_PILL = "STOP"
+
 
 class HailoInference:
     def __init__(self, hef_path: str) -> None:
@@ -125,6 +127,8 @@ class HailoInference:
             ) as infer:
                 while True:
                     shm_info = input_queue.get()
+                    if shm_info == POISON_PILL:
+                        break
                     image = self.share_memory_manager.read(**shm_info)
                     image = np.expand_dims(image.astype(np.uint8), axis=0)
                     # with Timer(f"inference"):
@@ -201,6 +205,7 @@ class HailoInference:
             self.process = Thread(
                 target=self.init_as_process,
                 args=(self.input_queue, self.output_queue, self.thead_number),
+                daemon=True,
             )
             self.thead_number += 1
             self.process.start()
@@ -216,6 +221,7 @@ class HailoInference:
 
         try:
             # self.process.terminate()
+            self.input_queue.put(POISON_PILL)
             self.process.join()
             self.is_initialized = False
         except Exception as e:

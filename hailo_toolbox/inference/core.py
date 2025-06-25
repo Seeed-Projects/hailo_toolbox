@@ -4,7 +4,8 @@ import logging
 import os
 import os.path as osp
 from multiprocessing import Process, Queue
-
+import datetime
+import cv2
 import numpy as np
 from hailo_toolbox.inference.hailo_engine import HailoInference
 from hailo_toolbox.inference.onnx_engine import ONNXInference
@@ -641,7 +642,6 @@ class InferenceEngine:
         model: Optional[AnyStr] = None,
         command: Optional[AnyStr] = None,
         convert: bool = False,
-        infer: bool = False,
         source: Any = None,
         output: Any = None,
         preprocess_config: Any = None,
@@ -688,7 +688,6 @@ class InferenceEngine:
                 else getattr(config, "task_name", "yolov8det")
             )
             self.convert = convert if convert else getattr(config, "convert", False)
-            self.infer = infer if infer else getattr(config, "infer", False)
             self.source = (
                 source if source is not None else getattr(config, "source", None)
             )
@@ -715,7 +714,6 @@ class InferenceEngine:
                 if task_type is not None
                 else getattr(config, "task_type", None)
             )
-            self.save = save if save else getattr(config, "save", False)
             self.save_dir = (
                 save_dir if save_dir is not None else getattr(config, "save_dir", None)
             )
@@ -725,7 +723,6 @@ class InferenceEngine:
             self.model = model
             self.command = command
             self.convert = convert
-            self.infer = infer
             self.source = source
             self.output = output
             self.preprocess_config = preprocess_config
@@ -750,16 +747,15 @@ class InferenceEngine:
             self.collate_infer_name = task_name
 
         # Determine inference mode and backend type
-        if self.command == "infer":
-            self.infer = True
-            if self.model and self.model.endswith(".hef"):
-                self.infer_type = "hailo"
-            elif self.model and self.model.endswith(".onnx"):
-                self.infer_type = "onnx"
-            else:
-                raise ValueError(f"Unsupported model type: {self.model}")
+
+        if self.model and self.model.endswith(".hef"):
+            self.infer_type = "hailo"
+        elif self.model and self.model.endswith(".onnx"):
+            self.infer_type = "onnx"
         else:
-            self.infer = False
+            raise ValueError(f"Unsupported model type: {self.model}")
+        if self.save_dir:
+            os.makedirs(self.save_dir, exist_ok=True)
 
         self.callback_registry = CALLBACK_REGISTRY
         self.initialized = False
@@ -928,25 +924,24 @@ class InferenceEngine:
                 )
 
                 # Visualize results if enabled
-                if self.show:
+                if (self.show and self.visualization) or self.save_dir:
                     vis_image = self.visualization(original_frame, post_results)
 
                     # Save visualization if configured
-                    if self.save:
-                        if self.save_dir is None:
-                            output_path = "output"
-                        else:
-                            output_path = self.save_dir
-                        os.makedirs(osp.dirname(output_path), exist_ok=True)
+                    if self.save_dir:
                         output_path = osp.join(
-                            output_path, f"output_frame_{frame_idx:04d}.jpg"
+                            self.save_dir,
+                            f"{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{frame_idx:04d}.jpg",
                         )
-                        success = self.visualization.save(vis_image, output_path)
-                        if success:
-                            logger.debug(f"Saved visualization to {output_path}")
+                        cv2.imwrite(output_path, vis_image)
+                        logger.debug(f"Saved visualization to {output_path}")
 
                     # Display visualization
-                    self.visualization.show(vis_image, f"show")
+                    if self.show:
+                        cv2.imshow("show", vis_image)
+                        cv2.waitKey(1)
+
+            self.infer.stop_process()
 
     def as_server_inference(
         self,

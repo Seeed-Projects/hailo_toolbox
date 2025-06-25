@@ -45,7 +45,7 @@ class ImageSource(BaseSource):
             "supported_formats",
             [".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".webp", ".gif"],
         )
-        self.loop = self.config.get("loop", True)
+        self.loop = self.config.get("loop", False)
         self.sort_files = self.config.get("sort_files", True)
         self.timeout = self.config.get("timeout", 10)
 
