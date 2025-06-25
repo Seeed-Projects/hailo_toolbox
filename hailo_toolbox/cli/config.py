@@ -105,10 +105,7 @@ def parse_args() -> argparse.Namespace:
 
     infer_parser.add_argument(
         "model",
-        "--model",
-        "-m",
         type=str,
-        required=True,
         help="Path to the model file (ONNX format)",
     )
     infer_parser.add_argument(
@@ -119,11 +116,12 @@ def parse_args() -> argparse.Namespace:
         help="Path to the source file (video, image, or camera)",
     )
     infer_parser.add_argument(
-        "--infer-name",
-        "-in",
+        "--task-name",
+        "--task_name",
+        "-tn",
         type=str,
-        default="yolob8det",
-        help="Callback name",
+        default="yolov8det",
+        help="Task name",
     )
 
     infer_parser.add_argument(
