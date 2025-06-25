@@ -50,7 +50,7 @@ class UntrackedSharedMemory(shared_memory.SharedMemory):
 
 
 class ShareMemoryManager:
-    def __init__(self, max_size: Optional[int] = None):
+    def __init__(self, max_size: Optional[int] = 640*640*3*20):
         self.max_size = max_size
         self.shm_dict: Dict[str, UntrackedSharedMemory] = {}
 
@@ -118,7 +118,31 @@ class ShareMemoryManager:
 
         return data
 
+    def cleanup_single(self, name: str):
+        """
+        Clean up a single shared memory block by name.
+        
+        Args:
+            name: Name of the shared memory block to clean up
+        """
+        if name in self.shm_dict:
+            try:
+                shm = self.shm_dict[name]
+                shm.close()
+                # Don't unlink here as it might be used by other processes
+                del self.shm_dict[name]
+            except Exception as e:
+                print(f"Error cleaning up shared memory {name}: {e}")
+    
+    def cleanup(self):
+        """Clean up all shared memory blocks."""
+        for name, shm in list(self.shm_dict.items()):
+            try:
+                shm.close()
+                shm.unlink()
+            except Exception as e:
+                print(f"Error cleaning up shared memory {name}: {e}")
+        self.shm_dict.clear()
+
     def __del__(self):
-        for shm in self.shm_dict.values():
-            shm.close()
-            shm.unlink()
+        self.cleanup()
