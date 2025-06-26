@@ -12,7 +12,6 @@ def main():
     args = parse_args()
     config = Config(vars(args))
     if args.command == "infer":
-        InferenceEngine()
         engine = InferenceEngine(**vars(args))
         engine.run()
     elif args.command == "convert":
