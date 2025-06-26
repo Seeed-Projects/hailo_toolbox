@@ -49,7 +49,7 @@ if __name__ == "__main__":
 
     engine = InferenceEngine(
         model="https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.15.0/hailo8/efficientnet_s.hef",
-        source="/home/hk/github/hailo_tools/sources/test640.mp4",
+        source="Enter the path to your input source",
         preprocess_config=preprocess_config,
         task_name="custom",
         show=True,
