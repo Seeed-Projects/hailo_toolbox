@@ -1,5 +1,9 @@
 import numpy as np
-import tensorflow as tf
+
+try:
+    import tensorflow as tf
+except ImportError:
+    tf = None
 
 from hailo_toolbox.process.utils.affine_utils import transform_preds
 

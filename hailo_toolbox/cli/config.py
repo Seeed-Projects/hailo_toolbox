@@ -27,7 +27,9 @@ def parse_args() -> argparse.Namespace:
     convert_parser = subparsers.add_parser("convert", help="convert model")
 
     convert_parser.add_argument(
-        "model", type=str, help="Path to the model file (ONNX format)"
+        "model",
+        type=str,
+        help="Path to the model file (ONNX、tflite、TorchScript、Paddle、pb format)",
     )
 
     convert_parser.add_argument(
@@ -106,14 +108,14 @@ def parse_args() -> argparse.Namespace:
     infer_parser.add_argument(
         "model",
         type=str,
-        help="Path to the model file (ONNX format)",
+        help="Path to the model file (ONNX or HEF format)",
     )
     infer_parser.add_argument(
         "--source",
         "-s",
         type=str,
         required=True,
-        help="Path to the source file (video, image, or camera)",
+        help="Path to the source file (video, image, image folder, ip camera, rtsp camera)",
     )
     infer_parser.add_argument(
         "--task-name",
@@ -121,7 +123,7 @@ def parse_args() -> argparse.Namespace:
         "-tn",
         type=str,
         default="yolov8det",
-        help="Task name",
+        help="The name attribute given when the callback function is registered",
     )
 
     infer_parser.add_argument(

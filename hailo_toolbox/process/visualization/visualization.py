@@ -345,6 +345,8 @@ class BaseVisualization(ABC):
         Returns:
             Visualized image as numpy array
         """
+        image = self._draw_fps(image, 1 / (time.time() - self.prev_time))
+        self.prev_time = time.time()
         return self.visualize(image, results)
 
     @abstractmethod
