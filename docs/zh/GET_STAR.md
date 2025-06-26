@@ -10,7 +10,7 @@
 - [项目结构](#项目结构)
 - [模型转换](#模型转换)
 - [模型推理](#模型推理)
-- [API服务模式](#api服务模式)
+- [Python API使用](#python-api使用)
 - [使用示例](#使用示例)
 - [常见问题](#常见问题)
 - [性能优化](#性能优化)
@@ -27,7 +27,7 @@
 ### Hailo特定要求
 - **[Hailo Dataflow Compiler](https://hailo.ai/developer-zone/software-downloads/)**: 用于模型转换功能（必须安装，仅支持X86架构且Linux系统）
 - **[HailoRT](https://hailo.ai/developer-zone/software-downloads/)**: 用于推理功能（推理时必须安装）
-- **Hailo硬件**: 用于硬件加速推理（必须安装）
+- **Hailo硬件**: 用于硬件加速推理（必选）
 
 ### Python依赖包
 核心依赖包会在安装时自动安装：
@@ -60,7 +60,6 @@ pip install -e .
 # 或者直接安装
 pip install .
 ```
-
 
 ### 方式二：创建虚拟环境（推荐）
 
@@ -109,11 +108,14 @@ hailo_toolbox/
 │   └── server.py          # API服务器
 ├── converters/            # 模型转换器
 ├── inference/             # 推理引擎
-│   ├── base.py           # 基础推理类
+│   ├── core.py           # 核心推理引擎和注册机制
 │   ├── hailo_engine.py   # Hailo推理引擎
 │   ├── onnx_engine.py    # ONNX推理引擎
 │   └── pipeline.py       # 推理管道
 ├── process/              # 数据处理模块
+│   ├── preprocessor/     # 预处理模块
+│   ├── postprocessor/    # 后处理模块
+│   └── callback.py       # 回调函数
 ├── sources/              # 数据源管理
 ├── utils/                # 工具函数
 └── models/              # 模型管理
@@ -169,31 +171,6 @@ hailo-toolbox convert model.onnx \
 | `--output-dir` | ❌ | 模型同目录 | 输出文件保存目录 | `./outputs/` |
 | `--profile` | ❌ | False | 生成性能分析报告 | - |
 
-### 转换最佳实践
-
-1. **准备校准数据集**：
-   ```bash
-   # 创建校准数据集目录
-   mkdir calibration_images
-   # 添加代表性图像（建议50-200张）
-   cp representative_images/* calibration_images/
-   ```
-
-2. **选择合适的硬件架构**：
-   - `hailo8`: 标准Hailo-8芯片
-   - `hailo8l`: Hailo-8L低功耗版本
-   - `hailo15`: 新一代Hailo-15芯片
-   - `hailo15l`: Hailo-15L版本
-
-3. **优化输入尺寸**：
-   ```bash
-   # 对于目标检测模型，常用尺寸：
-   hailo-toolbox convert yolov8n.onnx --input-shape 640,640,3 --hw-arch hailo8
-   
-   # 对于分类模型：
-   hailo-toolbox convert resnet50.onnx --input-shape 224,224,3 --hw-arch hailo8
-   ```
-
 ## 模型推理
 
 Hailo Toolbox提供灵活的推理接口，支持多种输入源和输出格式。
@@ -205,12 +182,12 @@ Hailo Toolbox提供灵活的推理接口，支持多种输入源和输出格式�
 hailo-toolbox infer --help
 
 # 基础推理示例
-hailo-toolbox infer model.hef --source video.mp4 --infer-name yolov8det --show
+hailo-toolbox infer model.hef --source video.mp4 --task-name yolov8det --show
 
 # 完整推理示例
 hailo-toolbox infer yolov8.hef \
     --source 0 \
-    --infer-name yolov8det \
+    --task-name yolov8det \
     --save-dir ./results \
     --show
 ```
@@ -221,7 +198,7 @@ hailo-toolbox infer yolov8.hef \
 |------|------|--------|------|------|
 | `model` | ✅ | - | 模型文件路径(.hef或.onnx) | `model.hef` |
 | `--source` | ✅ | - | 输入源路径 | 见下表 |
-| `--infer-name` | ❌ | `yolov8det` | 推理回调函数名称 | `yolov8det`, `yolov8seg`, `yolov8pose` |
+| `--task-name` | ❌ | `yolov8det` | 任务名称，用于回调函数查找 | `yolov8det`, `yolov8seg`, `yolov8pe` |
 | `--save-dir` | ❌ | None | 结果保存目录 | `./results/` |
 | `--show` | ❌ | False | 实时显示结果 | - |
 
@@ -242,54 +219,80 @@ hailo-toolbox infer yolov8.hef \
 |------------|------|----------|------|
 | `yolov8det` | 目标检测 | YOLOv8检测模型 | 边界框+类别+置信度 |
 | `yolov8seg` | 实例分割 | YOLOv8分割模型 | 分割掩码+边界框 |
-| `yolov8pose` | 姿态估计 | YOLOv8姿态模型 | 关键点+骨架连接 |
+| `yolov8pe` | 姿态估计 | YOLOv8姿态模型 | 关键点+骨架连接 |
 
-## API服务模式
+## Python API使用
 
-Hailo Toolbox提供RESTful API服务，支持远程调用和集成。
-
-### 启动API服务器
-
-```bash
-# 启动基础服务器
-hailo-toolbox server --host 0.0.0.0 --port 8080
-
-# 启动服务器并加载配置
-hailo-toolbox server --config server_config.yaml --verbose
-```
-
-### API端点
-
-| 端点 | 方法 | 功能 | 参数 |
-|------|------|------|------|
-| `/api/models` | GET | 获取已加载的模型列表 | - |
-| `/api/models` | POST | 加载新模型 | `model_path`, `model_id` |
-| `/api/models/<id>` | DELETE | 卸载模型 | - |
-| `/api/sources` | GET | 获取数据源列表 | - |
-| `/api/sources` | POST | 创建数据源 | `source_type`, `config` |
-| `/api/pipelines` | GET | 获取推理管道列表 | - |
-| `/api/pipelines` | POST | 创建推理管道 | `source_id`, `model_id` |
-| `/api/infer` | POST | 执行推理 | `image_data`, `model_id` |
-
-### API使用示例
+### 基本使用方式
 
 ```python
-import requests
-import json
+from hailo_toolbox.inference import InferenceEngine
 
-# 加载模型
-response = requests.post('http://localhost:8080/api/models', 
-                        json={'model_path': 'yolov8n.hef', 'model_id': 'yolo'})
+# 新式API - 直接参数（推荐）
+engine = InferenceEngine(
+    model="models/yolov8n.hef",
+    source="video.mp4",
+    task_name="yolov8det",
+    show=True,
+    save_dir="output/"
+)
+engine.run()
 
-# 执行推理
-with open('image.jpg', 'rb') as f:
-    files = {'image': f}
-    response = requests.post('http://localhost:8080/api/infer', 
-                           files=files, 
-                           data={'model_id': 'yolo'})
-    
-results = response.json()
-print(results)
+# 旧式API - 配置对象（向后兼容）
+from hailo_toolbox.utils.config import Config
+
+config = Config()
+config.model = "models/yolov8n.hef"
+config.source = "video.mp4"
+config.task_name = "yolov8det"
+config.show = True
+
+engine = InferenceEngine(config, "yolov8det")
+engine.run()
+```
+
+### 自定义回调函数
+
+```python
+from hailo_toolbox.inference.core import CALLBACK_REGISTRY, InferenceEngine
+import numpy as np
+import cv2
+
+@CALLBACK_REGISTRY.registryPostProcessor("custom")
+class CustomPostProcessor:
+    def __init__(self, config):
+        self.config = config
+
+    def __call__(self, results, original_shape=None):
+        # 自定义后处理逻辑
+        processed_results = []
+        for k, v in results.items():
+            # 处理模型输出
+            processed_results.append(self.process_output(v))
+        return processed_results
+
+@CALLBACK_REGISTRY.registryVisualizer("custom")
+class CustomVisualizer:
+    def __init__(self, config):
+        self.config = config
+
+    def __call__(self, original_frame, results):
+        # 自定义可视化逻辑
+        vis_frame = original_frame.copy()
+        for result in results:
+            # 绘制结果
+            cv2.putText(vis_frame, str(result), (10, 30), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        return vis_frame
+
+# 使用自定义回调
+engine = InferenceEngine(
+    model="models/custom_model.hef",
+    source="video.mp4",
+    task_name="custom",
+    show=True
+)
+engine.run()
 ```
 
 ## 使用示例
@@ -307,8 +310,7 @@ hailo-toolbox convert yolov8n.onnx \
 # 使用转换后的模型进行推理
 hailo-toolbox infer ./models/yolov8n.hef \
     --source ./test_videos/traffic.mp4 \
-    --infer-name yolov8det \
-    --save \
+    --task-name yolov8det \
     --save-dir ./results \
     --show
 ```
@@ -319,13 +321,13 @@ hailo-toolbox infer ./models/yolov8n.hef \
 # USB摄像头实时检测
 hailo-toolbox infer yolov8n.hef \
     --source 0 \
-    --infer-name yolov8det \
+    --task-name yolov8det \
     --show
 
 # IP摄像头实时检测
 hailo-toolbox infer yolov8n.hef \
     --source "rtsp://admin:password@192.168.1.100:554/stream" \
-    --infer-name yolov8det \
+    --task-name yolov8det \
     --show
 ```
 
@@ -335,30 +337,105 @@ hailo-toolbox infer yolov8n.hef \
 # 处理文件夹中的所有图片
 hailo-toolbox infer yolov8n.hef \
     --source ./test_images/ \
-    --infer-name yolov8det \
-    --save \
+    --task-name yolov8det \
     --save-dir ./batch_results
 ```
 
-### 示例4：使用Python API
+### 示例4：实例分割
+
+```bash
+# 分割任务
+hailo-toolbox infer yolov8n_seg.hef \
+    --source video.mp4 \
+    --task-name yolov8seg \
+    --show \
+    --save-dir ./segmentation_results
+```
+
+### 示例5：姿态估计
+
+```bash
+# 姿态估计
+hailo-toolbox infer yolov8s_pose.hef \
+    --source video.mp4 \
+    --task-name yolov8pe \
+    --show \
+    --save-dir ./pose_results
+```
+
+### 示例6：使用Python API
 
 ```python
-from hailo_toolbox.inference import InferencePipeline
-from hailo_toolbox.sources import FileSource
+from hailo_toolbox.inference import InferenceEngine
+from hailo_toolbox.process.preprocessor.preprocessor import PreprocessConfig
 
-# 创建推理管道
-pipeline = InferencePipeline(
-    model_path="yolov8n.hef",
-    callback_name="yolov8det"
+# 自定义预处理配置
+preprocess_config = PreprocessConfig(
+    target_size=(640, 640),
+    normalize=True,
+    mean=[0.485, 0.456, 0.406],
+    std=[0.229, 0.224, 0.225]
 )
 
-# 创建文件源
-source = FileSource("test_video.mp4")
+# 创建推理引擎
+engine = InferenceEngine(
+    model="models/yolov8n.hef",
+    source="video.mp4",
+    task_name="yolov8det",
+    preprocess_config=preprocess_config,
+    show=True,
+    save_dir="output/"
+)
 
 # 运行推理
-for frame in source:
-    results = pipeline.infer(frame)
-    print(f"检测到 {len(results.detections)} 个目标")
+engine.run()
+```
+
+### 示例7：服务器模式（高级用法）
+
+```python
+import queue
+import threading
+import numpy as np
+from hailo_toolbox.inference import InferenceEngine
+
+# 创建推理引擎
+engine = InferenceEngine(
+    model="models/yolov8n.hef",
+    task_name="yolov8det"
+)
+
+# 启动服务器模式
+input_queue, output_queue = engine.start_server(
+    enable_visualization=True,
+    queue_size=30,
+    server_timeout=2.0
+)
+
+# 处理帧
+def process_frames():
+    for i in range(10):
+        # 创建测试帧
+        frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+        
+        # 发送到推理队列
+        frame_info = engine.shm_manager.write(frame, f"frame_{i}")
+        input_queue.put(frame_info)
+        
+        # 获取结果
+        try:
+            result = output_queue.get(timeout=5.0)
+            print(f"处理完成帧 {i}")
+        except queue.Empty:
+            print(f"帧 {i} 处理超时")
+
+# 运行处理
+process_thread = threading.Thread(target=process_frames)
+process_thread.start()
+process_thread.join()
+
+# 关闭服务器
+input_queue.put("SHUTDOWN")
 ```
 
 ## 常见问题
@@ -385,8 +462,8 @@ hailo-toolbox convert model.onnx --use-random-calib-set
 **A**: 检查摄像头权限和设备ID：
 ```bash
 # 尝试不同的设备ID
-hailo-toolbox infer model.hef --source 0  # 第一个摄像头
-hailo-toolbox infer model.hef --source 1  # 第二个摄像头
+hailo-toolbox infer model.hef --source 0 --task-name yolov8det  # 第一个摄像头
+hailo-toolbox infer model.hef --source 1 --task-name yolov8det  # 第二个摄像头
 
 # 在Linux下检查摄像头设备
 ls /dev/video*
@@ -396,7 +473,10 @@ ls /dev/video*
 **A**: 参考[性能优化](#性能优化)部分的建议。
 
 ### Q5: 支持自定义回调函数吗？
-**A**: 是的，可以通过继承`InferenceCallback`类来实现自定义回调函数。
+**A**: 是的，可以通过注册机制实现自定义回调函数，详见开发文档。
+
+### Q6: 如何处理不同的输入源？
+**A**: Hailo Toolbox支持多种输入源，包括图片、视频、摄像头和网络流，会自动检测输入类型。
 
 ## 性能优化
 
@@ -419,13 +499,24 @@ ls /dev/video*
 
 ```python
 # 优化配置示例
-config = {
-    "batch_size": 4,           # 批处理大小
-    "num_threads": 8,          # 线程数
-    "cache_size": 100,         # 缓存大小
-    "device": "hailo",         # 使用Hailo设备
-    "precision": "int8"        # 使用int8精度
-}
+engine = InferenceEngine(
+    model="models/yolov8n.hef",
+    source="video.mp4",
+    task_name="yolov8det",
+    # 预处理优化
+    preprocess_config={
+        "target_size": (640, 640),
+        "normalize": True,
+        "batch_size": 4  # 批处理
+    },
+    # 后处理优化
+    postprocess_config={
+        "confidence_threshold": 0.5,
+        "nms_threshold": 0.4,
+        "max_detections": 100
+    },
+    show=True
+)
 ```
 
 ## 故障排除
@@ -434,7 +525,7 @@ config = {
 ```bash
 # 启用详细日志
 export HAILO_LOG_LEVEL=DEBUG
-hailo-toolbox infer model.hef --source video.mp4 --infer-name yolov8det
+hailo-toolbox infer model.hef --source video.mp4 --task-name yolov8det
 
 # 查看日志文件
 ls *.log
@@ -449,7 +540,43 @@ cat hailo_toolbox.log
 | `Unsupported model format` | 模型格式不支持 | 确认模型格式是否在支持列表中 |
 | `CUDA out of memory` | GPU内存不足 | 减少batch_size或使用CPU |
 | `Permission denied` | 权限不足 | 使用sudo或检查文件权限 |
-| `Port already in use` | 端口被占用 | 更换端口或停止占用进程 |
+| `Task name not found` | 回调函数未注册 | 检查task_name是否正确或注册自定义回调 |
+| `Source not accessible` | 输入源无法访问 | 检查文件路径、摄像头权限或网络连接 |
+
+### 性能诊断
+```python
+# 性能监控示例
+import time
+from hailo_toolbox.inference import InferenceEngine
+
+class PerformanceMonitor:
+    def __init__(self):
+        self.start_time = None
+        self.frame_count = 0
+    
+    def start(self):
+        self.start_time = time.time()
+        self.frame_count = 0
+    
+    def update(self):
+        self.frame_count += 1
+        if self.frame_count % 100 == 0:
+            elapsed = time.time() - self.start_time
+            fps = self.frame_count / elapsed
+            print(f"处理了 {self.frame_count} 帧，平均FPS: {fps:.2f}")
+
+# 使用监控器
+monitor = PerformanceMonitor()
+monitor.start()
+
+engine = InferenceEngine(
+    model="models/yolov8n.hef",
+    source="video.mp4",
+    task_name="yolov8det"
+)
+
+# 在推理循环中调用monitor.update()
+```
 
 ### 获取帮助
 - **GitHub Issues**: [提交问题](https://github.com/Seeed-Projects/hailo_toolbox/issues)
@@ -465,13 +592,20 @@ Hailo Toolbox是一个功能强大的深度学习模型转换和推理工具包�
 1. ✅ 成功安装和配置工具
 2. ✅ 转换各种格式的深度学习模型
 3. ✅ 执行高效的模型推理
-4. ✅ 使用API服务模式
+4. ✅ 使用Python API进行自定义开发
 5. ✅ 解决常见问题和优化性能
+
+关键特性总结：
+- **模块化架构**: 基于注册机制的可扩展设计
+- **多种输入源**: 支持图片、视频、摄像头、网络流
+- **灵活的API**: 同时支持命令行和Python API
+- **高性能**: 优化的推理引擎和硬件加速支持
+- **易于扩展**: 简单的自定义回调函数注册机制
 
 如果遇到问题，请参考故障排除部分或在GitHub上提交Issue。祝您使用愉快！
 
-**更新日期**: 2024年6月
-**版本**: v1.0.0
+**更新日期**: 2024年12月
+**版本**: v2.0.0
 
 
 
