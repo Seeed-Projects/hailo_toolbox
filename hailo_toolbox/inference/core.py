@@ -25,6 +25,7 @@ class CallbackType(Enum):
     VISUALIZER = "visualizer"
     SOURCE = "source"
     COLLATE_INFER = "collate_infer"
+    EVENT_PROCESSOR = "event_processor"
 
 
 def empty_callback(args) -> None:
@@ -83,6 +84,7 @@ class CallbackRegistry:
         self.engines: Dict[str, Any] = {}
         self.PreProcessor: Dict[str, Callable] = {}
         self.PostProcessor: Dict[str, Callable] = {}
+        self.EventProcessor: Dict[str, Callable] = {}
         self.Visualizer: Dict[str, Callable] = {}
         self.Source: Dict[str, Callable] = {}
         self.CollateInfer: Dict[str, Callable] = {}
@@ -201,6 +203,8 @@ class CallbackRegistry:
             self.Source[name] = callback
         elif callback_type == CallbackType.COLLATE_INFER:
             self.CollateInfer[name] = callback
+        elif callback_type == CallbackType.EVENT_PROCESSOR:
+            self.EventProcessor[name] = callback
 
     def get_callback(
         self, name: str, callback_type: CallbackType, default: Optional[Callable] = None
@@ -329,6 +333,11 @@ class CallbackRegistry:
                 ):
                     del self.PostProcessor[name]
                 elif (
+                    callback_type == CallbackType.EVENT_PROCESSOR
+                    and name in self.EventProcessor
+                ):
+                    del self.EventProcessor[name]
+                elif (
                     callback_type == CallbackType.VISUALIZER and name in self.Visualizer
                 ):
                     del self.Visualizer[name]
@@ -411,6 +420,14 @@ class CallbackRegistry:
         if not names:
             raise ValueError("At least one name must be provided")
         return self.register(list(names), CallbackType.POST_PROCESSOR)
+
+    def registryEventProcessor(self, *names: str) -> Callable:
+        """
+        Convenient decorator for registering event processors with multiple names.
+        """
+        if not names:
+            raise ValueError("At least one name must be provided")
+        return self.register(list(names), CallbackType.EVENT_PROCESSOR)
 
     def registryVisualizer(self, *names: str) -> Callable:
         """
@@ -503,6 +520,10 @@ class CallbackRegistry:
     def getVisualizer(self, name: str) -> Callable:
         """Legacy method - use get_callback instead"""
         return self.get_callback(name, CallbackType.VISUALIZER)
+
+    def getEventProcessor(self, name: str) -> Callable:
+        """Legacy method - use get_callback instead"""
+        return self.get_callback(name, CallbackType.EVENT_PROCESSOR)
 
     def getSource(self, name: str) -> Callable:
         """Legacy method - use get_callback instead"""
@@ -646,6 +667,7 @@ class InferenceEngine:
         output: Any = None,
         preprocess_config: Any = None,
         postprocess_config: Any = None,
+        event_processor_config: Any = None,
         visualization_config: Any = None,
         task_type: Any = None,
         save: bool = False,
@@ -668,6 +690,7 @@ class InferenceEngine:
             output: Output configuration
             preprocess_config: Preprocessing configuration
             postprocess_config: Postprocessing configuration
+            event_processor_config: Event processing configuration
             visualization_config: Visualization configuration
             task_type: Type of task (e.g., "detection", "segmentation")
             save: Whether to save output (default: False)
@@ -704,6 +727,11 @@ class InferenceEngine:
                 if postprocess_config is not None
                 else getattr(config, "postprocess_config", None)
             )
+            self.event_processor_config = (
+                event_processor_config
+                if event_processor_config is not None
+                else getattr(config, "event_processor_config", None)
+            )
             self.visualization_config = (
                 visualization_config
                 if visualization_config is not None
@@ -727,6 +755,7 @@ class InferenceEngine:
             self.output = output
             self.preprocess_config = preprocess_config
             self.postprocess_config = postprocess_config
+            self.event_processor_config = event_processor_config
             self.visualization_config = visualization_config
             self.task_type = task_type
             self.save = save
@@ -740,12 +769,13 @@ class InferenceEngine:
             self.postprocess_name = None
             self.visualization_name = None
             self.collate_infer_name = None
+            self.event_processor_name = None
         else:
             self.preprocess_name = task_name
             self.postprocess_name = task_name
             self.visualization_name = task_name
             self.collate_infer_name = task_name
-
+            self.event_processor_name = task_name
         # Determine inference mode and backend type
 
         if self.model and self.model.endswith(".hef"):
@@ -772,6 +802,7 @@ class InferenceEngine:
         self.init_postprocess()
         self.init_visualization()
         self.init_callback()
+        self.init_event_processor()
         self.initialized = True
 
     def init_model(self, model_file: Optional[Any] = None):
@@ -820,6 +851,14 @@ class InferenceEngine:
         )
         self.postprocess = self.callback_registry.getPostProcessor(self.task_name)(
             self.postprocess_config
+        )
+
+    def init_event_processor(self, event_processor: Optional[Any] = None):
+        """
+        Initialize the event processing component.
+        """
+        self.event_processor = self.callback_registry.getEventProcessor(self.task_name)(
+            self.event_processor_config
         )
 
     def init_visualization(self, visualization: Optional[Any] = None):
@@ -922,6 +961,10 @@ class InferenceEngine:
                 post_results = self.postprocess(
                     results, original_shape=original_frame.shape[:2]
                 )
+
+                # Event processing
+                if self.event_processor is not None:
+                    post_results = self.event_processor(post_results)
 
                 # Visualize results if enabled
                 if (self.show and self.visualization) or self.save_dir:

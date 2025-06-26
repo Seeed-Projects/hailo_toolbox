@@ -1,10 +1,10 @@
-from hailo_toolbox.inference import InferenceEngine
+from hailo_toolbox.inference import InferenceEngine, CALLBACK_REGISTRY
 
 
 if __name__ == "__main__":
     engine = InferenceEngine(
         model="https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.15.0/hailo8/yolov8n.hef",
-        source="Enter the path to your input source",
+        source="path/to/your/input/source",  # Replace with: image file, video file, folder path, or camera ID (0, 1, etc.)
         task_name="yolov8det",
         show=True,
     )

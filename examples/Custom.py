@@ -42,6 +42,16 @@ class CustomVisualizer:
         return original_frame
 
 
+@CALLBACK_REGISTRY.registryEventProcessor("custom")
+class CustomEventProcessor:
+    def __init__(self, config=None):
+        self.config = config
+
+    def __call__(self, results):
+        print("Class Name:", results)
+        return results
+
+
 if __name__ == "__main__":
     preprocess_config = PreprocessConfig(
         target_size=(224, 224),
@@ -49,7 +59,7 @@ if __name__ == "__main__":
 
     engine = InferenceEngine(
         model="https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.15.0/hailo8/efficientnet_s.hef",
-        source="Enter the path to your input source",
+        source="path/to/your/input/source",  # Replace with: image file, video file, folder path, or camera ID (0, 1, etc.)
         preprocess_config=preprocess_config,
         task_name="custom",
         show=True,
