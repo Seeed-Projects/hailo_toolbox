@@ -1,4 +1,4 @@
-# Hailo Tool Box - 智能视觉推理工具箱
+# Hailo Tool Box - 智能视觉转换推理工具箱
 
 ## 项目概述
 
