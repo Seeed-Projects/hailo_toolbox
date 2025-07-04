@@ -355,9 +355,11 @@ class Paddle2Hailo(BaseConverter):
                 save_file=onnx_path,
                 opset_version=self.opset_version,
                 enable_onnx_checker=self.enable_onnx_checker,
-                input_shape_dict=self._get_input_shape_dict()
-                if hasattr(self, "_get_input_shape_dict")
-                else None,
+                input_shape_dict=(
+                    self._get_input_shape_dict()
+                    if hasattr(self, "_get_input_shape_dict")
+                    else None
+                ),
                 input_names=self.input_names,
                 output_names=self.output_names,
             )

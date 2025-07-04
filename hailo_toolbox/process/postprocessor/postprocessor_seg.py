@@ -14,9 +14,8 @@ import logging
 from ..base import (
     BasePostprocessor,
     PostprocessConfig,
-    DetectionResult,
-    SegmentationResult,
 )
+from hailo_toolbox.process.results.seg import SegmentationResult
 from hailo_toolbox.inference.core import CALLBACK_REGISTRY
 
 logger = logging.getLogger(__name__)
@@ -374,7 +373,7 @@ def _yolov8_decoding(
     return boxes
 
 
-@CALLBACK_REGISTRY.registryPostProcessor("yolov8seg")
+@CALLBACK_REGISTRY.registryPostProcessor("yolov8mseg", "yolov8nseg")
 class YOLOv8SegPostprocessor(BasePostprocessor):
     """
     Postprocessor for YOLOv8 instance segmentation models.

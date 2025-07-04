@@ -12,10 +12,11 @@ import logging
 from ..base import (
     BasePostprocessor,
     PostprocessConfig,
-    DetectionResult,
+    # DetectionResult,
     non_max_suppression,
     scale_boxes,
 )
+from ..results.det import DetectionResult
 from hailo_toolbox.inference.core import CALLBACK_REGISTRY
 
 logger = logging.getLogger(__name__)

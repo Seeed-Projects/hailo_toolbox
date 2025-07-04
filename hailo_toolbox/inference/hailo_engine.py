@@ -92,6 +92,10 @@ class HailoInference:
             f"Input: {self.input_name} {self.input_shape}, Output: {self.output_name} {self.output_shape}"
         )
 
+    @classmethod
+    def as_process(cls):
+        return cls
+
     def _is_url(self, path: str) -> bool:
         """
         Check if the given path is a URL.
@@ -183,6 +187,10 @@ class HailoInference:
         with open(config_path, "r") as f:
             config = load(f, Loader=FullLoader)
         return config
+
+    def predict(self, input_data: np.ndarray) -> np.ndarray:
+        output = self.as_process_inference(input_data)
+        return output
 
     def init_as_predict(self):
         self.as_process_flag = False
@@ -413,10 +421,10 @@ class HailoInference:
 if __name__ == "__main__":
     config_path0 = "hailo_ocr/configs/config.yaml"
     config_path1 = "hailo_ocr/configs/config_back.yaml"
-    base_inference0 = BaseInference(config_path0)
-    # base_inference1 = BaseInference(config_path1)
+    base_inference0 = HailoInference(config_path0)
+    base_inference1 = HailoInference(config_path1)
     base_inference0.start_process()
-    # base_inference1.start_process()
+    base_inference1.start_process()
 
     image0 = np.random.randint(0, 255, (40, 48, 320, 3), dtype=np.uint8)
     image1 = np.random.randint(0, 255, (1, 640, 320, 3), dtype=np.uint8)

@@ -42,7 +42,7 @@ class PreprocessConfig:
     preserve_aspect_ratio: bool = False
 
     # Normalization parameters
-    normalize: bool = True
+    normalize: bool = False
     mean: Union[float, List[float]] = 0.0
     std: Union[float, List[float]] = 1.0
     scale: float = 1.0
@@ -227,7 +227,11 @@ class ImagePreprocessor(BasePreprocessor):
     builds a preprocessing pipeline based on the provided configuration.
     """
 
-    def __init__(self, config: Optional[PreprocessConfig] = None):
+    def __init__(
+        self,
+        config: Optional[PreprocessConfig] = None,
+        target_size: Optional[Tuple[int, int]] = None,
+    ):
         """
         Initialize the image preprocessor.
 
@@ -235,6 +239,8 @@ class ImagePreprocessor(BasePreprocessor):
             config (Optional[PreprocessConfig]): Preprocessing configuration
         """
         self.config = config or PreprocessConfig()
+        if target_size is not None:
+            self.config.target_size = target_size
         self.pipeline = None
         self._build_pipeline()
 

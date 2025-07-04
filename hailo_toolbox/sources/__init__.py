@@ -4,7 +4,7 @@ Module for different video source implementations.
 
 import os
 import os.path as osp
-from typing import Any, Dict, Union, List
+from typing import Any, Dict, Union, List, Optional
 from pathlib import Path
 from urllib.parse import urlparse
 from .base import BaseSource, SourceType
@@ -306,7 +306,7 @@ def detect_source_type(
 @CALLBACK_REGISTRY.registrySource("base")
 def create_source(
     source: Union[str, int, Dict[str, Any], Path, List],
-    source_id: str = None,
+    source_id: Optional[str] = None,
     config: Dict[str, Any] = None,
 ) -> BaseSource:
     """

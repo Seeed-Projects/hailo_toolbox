@@ -1202,6 +1202,40 @@ class InferenceEngine:
             self.callback_registry[callback_type](frame)
 
 
+class InferencePostProcess:
+    def __init__(self, model_path: str, model_name: str):
+        self.model_path = model_path
+        self.model_name = model_name
+        self.inference_engine = None
+        self.load_model()
+        self.load_preprocess()
+        self.load_postprocess()
+
+    def load_model(self):
+        if self.model_path.endswith(".hef"):
+            self.inference_engine = HailoInference(self.model_path)
+        elif self.model_path.endswith(".onnx"):
+            self.inference_engine = ONNXInference(self.model_path)
+        else:
+            raise ValueError(f"Unsupported model format: {self.model_path}")
+
+    def load_preprocess(self):
+        self.preprocess = CALLBACK_REGISTRY.getPreProcessor(self.model_name)(
+            target_size=self.inference_engine.input_shape[:2]
+        )
+
+    def load_postprocess(self):
+        self.postprocess = CALLBACK_REGISTRY.getPostProcessor(self.model_name)()
+        self.callback = self.inference_engine.add_callback(
+            CALLBACK_REGISTRY.getCollateInfer(self.model_name)
+        )
+
+    def predict(self, frame: np.ndarray):
+        frame = self.preprocess(frame)
+        results = self.inference_engine.as_process_inference(frame)
+        return self.postprocess(results)
+
+
 if __name__ == "__main__":
     # Demonstrate the enhanced registry functionality
     # print("Testing callback registry with multiple names:")

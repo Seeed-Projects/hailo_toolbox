@@ -53,9 +53,9 @@ class MockInferenceEngine:
             output[0, :, 4:] = (
                 np.random.rand(num_detections, 80) * 0.3
             )  # Low confidence for most classes
-            output[
-                0, :3, np.random.randint(4, 84, 3)
-            ] = 0.9  # High confidence for 3 detections
+            output[0, :3, np.random.randint(4, 84, 3)] = (
+                0.9  # High confidence for 3 detections
+            )
             return {"output": output}
 
         elif self.task_type == "segmentation":

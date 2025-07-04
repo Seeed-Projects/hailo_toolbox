@@ -16,11 +16,8 @@ import logging
 from ..base import (
     BasePostprocessor,
     PostprocessConfig,
-    KeypointResult,
-    non_max_suppression,
-    scale_boxes,
-    scale_keypoints,
 )
+from hailo_toolbox.process.results.pose import KeypointResult
 from hailo_toolbox.inference.core import CALLBACK_REGISTRY
 from hailo_toolbox.process.postprocessor.centerpose_postprocessing import (
     centerpose_postprocessing,
@@ -168,7 +165,7 @@ def linspace2d(
     return points[:, None] * np.arange(n) + start[:, None]
 
 
-@CALLBACK_REGISTRY.registryPostProcessor("yolov8pe")
+@CALLBACK_REGISTRY.registryPostProcessor("yolov8spose", "yolov8mpose")
 class YOLOv8PosePostprocessor(BasePostprocessor):
     """
     Postprocessor for YOLOv8 pose estimation models.
