@@ -50,7 +50,7 @@ class UntrackedSharedMemory(shared_memory.SharedMemory):
 
 
 class ShareMemoryManager:
-    def __init__(self, max_size: Optional[int] = 640 * 640 * 3 * 20):
+    def __init__(self, max_size: Optional[int] = 1024 * 1024 * 3 * 10):
         self.max_size = max_size
         self.shm_dict: Dict[str, UntrackedSharedMemory] = {}
 

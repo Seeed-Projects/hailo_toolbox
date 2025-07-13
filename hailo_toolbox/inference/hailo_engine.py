@@ -17,7 +17,7 @@ from hailo_toolbox.utils.sharememory import ShareMemoryManager
 from threading import Thread
 from urllib.parse import urlparse
 from hailo_toolbox.utils.download import download_model
-
+import cv2
 
 logger = get_logger(__file__)
 
@@ -254,7 +254,12 @@ class HailoInference:
                     if shm_info == POISON_PILL:
                         break
                     image = self.share_memory_manager.read(**shm_info)
-                    image = np.expand_dims(image.astype(np.uint8), axis=0)
+                    cv2.imwrite("image.png", image)
+                    image = np.repeat(
+                        np.expand_dims(image.astype(np.uint8), axis=0), 16, axis=3
+                    )  # .transpose(0, 2,1,3)
+                    print(image.shape)
+
                     # with Timer(f"inference"):
                     results = infer.infer(image)
                     # output_data = self.dequantization(results)
@@ -307,7 +312,7 @@ class HailoInference:
     def _initialize_queues(self):
         self.input_queue = Queue()
         self.output_queue = Queue()
-        self.share_memory_manager = ShareMemoryManager(max_size=640 * 48 * 3 * 100)
+        self.share_memory_manager = ShareMemoryManager(max_size=640 * 640 * 3 * 100)
 
     def _init_dequantization_info(self):
         a = self.hef.get_output_stream_infos()[0].quant_info

@@ -1221,7 +1221,7 @@ class InferencePostProcess:
 
     def load_preprocess(self):
         self.preprocess = CALLBACK_REGISTRY.getPreProcessor(self.model_name)(
-            target_size=self.inference_engine.input_shape[:2]
+            target_size=self.inference_engine.input_shape[:2][::-1]
         )
 
     def load_postprocess(self):
@@ -1231,9 +1231,12 @@ class InferencePostProcess:
         )
 
     def predict(self, frame: np.ndarray):
-        frame = self.preprocess(frame)
-        results = self.inference_engine.as_process_inference(frame)
-        return self.postprocess(results)
+        # Store original frame shape before preprocessing
+        original_shape = frame.shape[:2]  # (height, width)
+
+        preprocessed_frame = self.preprocess(frame)
+        results = self.inference_engine.as_process_inference(preprocessed_frame)
+        return self.postprocess(results, original_shape=original_shape)
 
 
 if __name__ == "__main__":
