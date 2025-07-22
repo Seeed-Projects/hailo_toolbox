@@ -99,7 +99,28 @@ hailo-toolbox infer model.hef --source video.mp4 --task-name yolov8det --save-di
 hailo-toolbox infer model.hef --source 0 --task-name yolov8det --show
 ```
 
-### Python API
+### Python API - ModelsZoo (Recommended)
+```python
+from hailo_toolbox import create_source
+from hailo_toolbox.models import ModelsZoo
+
+# Create input source
+source = create_source("video.mp4")  # or camera: 0, or image: "image.jpg"
+
+# Load model from ModelsZoo
+inference = ModelsZoo.detection.yolov8s()
+
+# Process frames
+for img in source:
+    results = inference.predict(img)
+    for result in results:
+        boxes = result.get_boxes()
+        scores = result.get_scores()
+        class_ids = result.get_class_ids()
+        print(f"Detected {len(result)} objects")
+```
+
+### Python API - InferenceEngine (Advanced)
 ```python
 from hailo_toolbox.inference import InferenceEngine
 
@@ -115,6 +136,25 @@ engine = InferenceEngine(
 # Run inference
 engine.run()
 ```
+
+### 📖 Complete Examples
+For detailed usage examples of each supported task:
+
+```bash
+# Browse all available examples
+ls examples/Hailo_*.py
+
+# Object detection with visualization
+python examples/Hailo_Object_Detection.py
+
+# Human pose estimation
+python examples/Hailo_Pose_Estimation.py
+
+# Face detection and landmarks
+python examples/Hailo_Face_Detection.py
+```
+
+> 📚 **Learn More**: See [`examples/README.md`](examples/README.md) for detailed documentation of all supported tasks and models.
 
 ### Custom Callback Registration
 ```python
@@ -132,15 +172,30 @@ class CustomPostProcessor:
 
 ## 📚 Documentation
 
-### User Guides
+### 🚀 Getting Started
+- **[Examples Directory](examples/)** - Complete working examples for all supported tasks
+- **[Examples README](examples/README.md)** - Detailed guide to all available examples
 - **[Quick Start Guide](docs/zh/GET_STAR.md)** / **[English](docs/en/GET_STAR.md)** - Installation and basic usage
+
+### 📖 User Guides  
 - **[Model Conversion Guide](docs/zh/CONVERT.md)** / **[English](docs/en/CONVERT.md)** - How to convert models to HEF format
 - **[Model Inference Guide](docs/zh/INFERENCE.md)** / **[English](docs/en/INFERENCE.md)** - How to run inference with converted models
 - **[Input Sources Guide](docs/zh/SOURCE.md)** / **[English](docs/en/SOURCE.md)** - Supported input sources and configuration
 
-### Developer Documentation
+### 🔧 Developer Documentation
 - **[Developer Guide](docs/zh/DEV.md)** / **[English](docs/en/DEV.md)** - How to implement custom models and callbacks
 - **[Project Introduction](docs/zh/INTRODUCE.md)** / **[English](docs/en/INTRODUCE.md)** - Detailed project overview and architecture
+
+### 💡 Task-Specific Examples
+| Task Category | Example File | Key Features |
+|---------------|--------------|--------------|
+| Object Detection | [`Hailo_Object_Detection.py`](examples/Hailo_Object_Detection.py) | Bounding boxes, confidence scores |
+| Instance Segmentation | [`Hailo_Instance_Segmentation.py`](examples/Hailo_Instance_Segmentation.py) | Pixel-level masks, object boundaries |
+| Pose Estimation | [`Hailo_Pose_Estimation.py`](examples/Hailo_Pose_Estimation.py) | Human keypoints, skeleton visualization |
+| Face Analysis | [`Hailo_Face_Detection.py`](examples/Hailo_Face_Detection.py) | Face detection, landmarks |
+| Image Classification | [`Hailo_Classification.py`](examples/Hailo_Classification.py) | Top-K predictions, confidence scores |
+| Depth Estimation | [`Hailo_Depth_Estimation.py`](examples/Hailo_Depth_Estimation.py) | Monocular depth maps |
+| Video Analysis | [`Hailo_Video_Classification.py`](examples/Hailo_Video_Classification.py) | Action recognition, temporal features |
 
 ## 🎯 Use Cases
 
@@ -159,14 +214,102 @@ class CustomPostProcessor:
 - Rapid prototyping and testing
 - Computer vision algorithm research platform
 
-## 🛠️ Supported Models
+## 🛠️ Supported Models and Tasks
 
-### Built-in Task Types
-- `yolov8det`: YOLOv8 object detection
-- `yolov8seg`: YOLOv8 instance segmentation  
-- `yolov8pe`: YOLOv8 pose estimation
+Hailo Toolbox supports a comprehensive range of computer vision tasks through the `ModelsZoo` API. Each task category includes pre-trained models optimized for Hailo hardware.
 
-### Input Formats
+### 🎯 Computer Vision Tasks
+
+#### **Object Detection**
+- **YOLOv8 variants** (n, s, m, l, x) - Real-time object detection
+- **Example**: [`Hailo_Object_Detection.py`](examples/Hailo_Object_Detection.py)
+- **API**: `ModelsZoo.detection.yolov8s()`
+
+#### **Instance Segmentation** 
+- **YOLOv8 Segmentation** - Object detection with pixel-level masks
+- **Example**: [`Hailo_Instance_Segmentation.py`](examples/Hailo_Instance_Segmentation.py)
+- **API**: `ModelsZoo.segmentation.yolov8s_seg()`
+
+#### **Human Pose Estimation**
+- **YOLOv8 Pose** - Human keypoint detection and pose analysis
+- **Example**: [`Hailo_Pose_Estimation.py`](examples/Hailo_Pose_Estimation.py)
+- **API**: `ModelsZoo.pose_estimation.yolov8s_pose()`
+
+#### **Image Classification**
+- **ResNet18, MobileNetV1** - Image category recognition
+- **Example**: [`Hailo_Classification.py`](examples/Hailo_Classification.py)
+- **API**: `ModelsZoo.classification.resnet18()`
+
+#### **Face Analysis**
+- **Face Detection**: RetinaFace, SCRFD models
+- **Face Recognition**: ArcFace MobileNet for identity verification
+- **Facial Landmarks**: 68-point facial feature detection
+- **Examples**: [`Hailo_Face_Detection.py`](examples/Hailo_Face_Detection.py), [`Hailo_Face_Recognition.py`](examples/Hailo_Face_Recognition.py), [`Hailo_Facial_Landmark.py`](examples/Hailo_Facial_Landmark.py)
+
+#### **Hand Analysis**
+- **Hand Landmark Detection** - Hand keypoint detection and tracking
+- **Example**: [`Hailo_Hand_Landmark.py`](examples/Hailo_Hand_Landmark.py)
+- **API**: `ModelsZoo.hand_landmark_detection.hand_landmark()`
+
+#### **Depth and Enhancement**
+- **Depth Estimation**: FastDepth for monocular depth prediction
+- **Super Resolution**: Real-ESRGAN for image upscaling
+- **Image Denoising**: DnCNN3 for noise reduction
+- **Low Light Enhancement**: Zero-DCE for low-light image improvement
+- **Examples**: [`Hailo_Depth_Estimation.py`](examples/Hailo_Depth_Estimation.py), [`Hailo_Super_Resolution.py`](examples/Hailo_Super_Resolution.py)
+
+#### **Text and OCR**
+- **License Plate Recognition**: LPRNet for vehicle plate reading
+- **Text-Image Retrieval**: CLIP ViT-L for text-image similarity
+- **Examples**: [`Hailo_License_Plate_Recognition.py`](examples/Hailo_License_Plate_Recognition.py), [`Hailo_Text_Image_Retrieval.py`](examples/Hailo_Text_Image_Retrieval.py)
+
+#### **Video Analysis**
+- **Video Classification**: R3D-18 for action recognition
+- **Person Re-identification**: OSNet-X1 for person tracking
+- **Examples**: [`Hailo_Video_Classification.py`](examples/Hailo_Video_Classification.py), [`Hailo_Person_ReID.py`](examples/Hailo_Person_ReID.py)
+
+### 📁 Example Usage
+
+All examples follow a consistent API pattern:
+
+```python
+from hailo_toolbox import create_source
+from hailo_toolbox.models import ModelsZoo
+
+# Create input source (video, camera, image)
+source = create_source("path/to/input")
+
+# Load model from ModelsZoo
+inference = ModelsZoo.task_category.model_name()
+
+# Process frames
+for img in source:
+    results = inference.predict(img)
+    for result in results:
+        # Access prediction results
+        # Each task has specific result methods
+        pass
+```
+
+### 🚀 Quick Examples
+
+```bash
+# Run object detection example
+python examples/Hailo_Object_Detection.py
+
+# Run pose estimation example  
+python examples/Hailo_Pose_Estimation.py
+
+# Run face detection example
+python examples/Hailo_Face_Detection.py
+
+# See all examples
+ls examples/Hailo_*.py
+```
+
+> 💡 **Tip**: Check the [`examples/`](examples/) directory for complete working examples of each task type. Each example includes model loading, inference, and result processing.
+
+### Input Format Support
 - **ONNX** (.onnx) - Recommended universal format
 - **TensorFlow** (.h5, saved_model.pb)
 - **TensorFlow Lite** (.tflite)
