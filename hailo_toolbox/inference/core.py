@@ -1220,8 +1220,12 @@ class InferencePostProcess:
             raise ValueError(f"Unsupported model format: {self.model_path}")
 
     def load_preprocess(self):
+        print(self.inference_engine.input_shape)
         self.preprocess = CALLBACK_REGISTRY.getPreProcessor(self.model_name)(
-            target_size=self.inference_engine.input_shape[:2][::-1]
+            target_size=self.inference_engine.input_shape[:2][::-1],
+            output_format=(
+                "GRAY" if self.inference_engine.input_shape[-1] == 1 else "RGB"
+            ),
         )
 
     def load_postprocess(self):
@@ -1232,11 +1236,26 @@ class InferencePostProcess:
 
     def predict(self, frame: np.ndarray):
         # Store original frame shape before preprocessing
-        original_shape = frame.shape[:2]  # (height, width)
+        if frame.ndim == 3:
+            original_shape = frame.shape[:2]  # (height, width)
+            preprocessed_frame = self.preprocess(frame)
+        elif frame.ndim == 4:
+            original_shape = frame.shape[1:3]  # (height, width)
+            frames = []
+            for f in frame:
+                frames.append(self.preprocess(f))
+            preprocessed_frame = np.concatenate(frames, axis=-1)
+        else:
+            raise ValueError(f"Unsupported frame shape: {frame.shape}")
 
-        preprocessed_frame = self.preprocess(frame)
+        # preprocessed_frame = self.preprocess(frame)
         results = self.inference_engine.as_process_inference(preprocessed_frame)
-        return self.postprocess(results, original_shape=original_shape)
+
+        return self.postprocess(
+            results,
+            original_shape=original_shape,
+            input_shape=self.inference_engine.input_shape,
+        )
 
 
 if __name__ == "__main__":

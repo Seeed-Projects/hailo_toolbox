@@ -125,7 +125,7 @@ def main() -> int:
     """
     args = parse_args()
 
-    # 设置日志
+    # Set up logging
     log_level = "DEBUG" if args.verbose else "INFO"
     logger = setup_logger(
         name="hailo_toolbox.convert",
@@ -139,7 +139,7 @@ def main() -> int:
         config = {}
         if args.config:
             config = load_config(args.config)
-            logger.info("已加载配置文件: %s", args.config)
+            logger.info("Loaded config file: %s", args.config)
 
         # Override config with command-line arguments
         if args.output_dir:
@@ -153,9 +153,9 @@ def main() -> int:
                 # Parse comma-separated input shape
                 input_shape = tuple(int(dim) for dim in args.input_shape.split(","))
                 config["input_shape"] = input_shape
-                logger.info("使用输入形状: %s", input_shape)
+                logger.info("Using input shape: %s", input_shape)
             except Exception as e:
-                logger.error("解析输入形状错误: %s", e)
+                logger.error("Error parsing input shape: %s", e)
                 return 1
 
         if args.dynamic_axes:
@@ -163,14 +163,14 @@ def main() -> int:
                 # Parse JSON dynamic axes configuration
                 dynamic_axes = json.loads(args.dynamic_axes)
                 config["dynamic_axes"] = dynamic_axes
-                logger.info("使用动态轴配置: %s", dynamic_axes)
+                logger.info("Using dynamic axes config: %s", dynamic_axes)
             except Exception as e:
-                logger.error("解析动态轴错误: %s", e)
+                logger.error("Error parsing dynamic axes: %s", e)
                 return 1
 
         # Check if model file exists
         if not os.path.exists(args.model_path):
-            logger.error("找不到模型文件: %s", args.model_path)
+            logger.error("Model file not found: %s", args.model_path)
             return 1
 
         # Create output directory if it doesn't exist
@@ -180,31 +180,31 @@ def main() -> int:
         # Get converter for the specified framework
         try:
             converter = get_converter(args.framework, config)
-            logger.info("使用 %s 转换器", args.framework)
+            logger.info("Using %s converter", args.framework)
         except Exception as e:
-            logger.error("创建转换器错误: %s", e)
+            logger.error("Error creating converter: %s", e)
             return 1
 
         # Convert the model
         try:
-            logger.info("开始转换模型: %s", args.model_path)
+            logger.info("Starting model conversion: %s", args.model_path)
             onnx_path = converter.convert(args.model_path, args.output_name)
-            logger.info("模型转换成功: %s", onnx_path)
+            logger.info("Model conversion successful: %s", onnx_path)
 
             # Validate the model
             if converter.validate_onnx(onnx_path):
-                logger.info("ONNX模型验证通过")
+                logger.info("ONNX model validation passed")
             else:
-                logger.warning("ONNX模型验证失败")
+                logger.warning("ONNX model validation failed")
 
         except Exception as e:
-            logger.exception("模型转换错误")
+            logger.exception("Model conversion error")
             return 1
 
         return 0
 
     except Exception as e:
-        logger.exception("意外错误")
+        logger.exception("Unexpected error")
         return 1
 
 

@@ -254,11 +254,9 @@ class HailoInference:
                     if shm_info == POISON_PILL:
                         break
                     image = self.share_memory_manager.read(**shm_info)
-                    cv2.imwrite("image.png", image)
                     image = np.repeat(
-                        np.expand_dims(image.astype(np.uint8), axis=0), 16, axis=3
+                        np.expand_dims(image.astype(np.uint8), axis=0), 2, axis=0
                     )  # .transpose(0, 2,1,3)
-                    print(image.shape)
 
                     # with Timer(f"inference"):
                     results = infer.infer(image)

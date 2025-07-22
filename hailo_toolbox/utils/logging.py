@@ -1,12 +1,12 @@
 """
-日志模块，为整个项目提供统一的日志记录功能。
+Logging module that provides unified logging functionality for the entire project.
 
-该模块提供了以下功能：
-1. 支持多种日志级别（DEBUG, INFO, WARNING, ERROR, CRITICAL）
-2. 支持同时输出到控制台和文件
-3. 支持自定义日志格式
-4. 支持日志文件轮转
-5. 支持多模块共享日志配置
+This module provides the following features:
+1. Support for multiple log levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+2. Support for simultaneous output to console and file
+3. Support for custom log formats
+4. Support for log file rotation
+5. Support for shared log configuration across multiple modules
 """
 
 import os
@@ -18,14 +18,14 @@ import datetime
 import atexit
 
 
-# 全局字典，用于存储已创建的日志器
+# Global dictionary to store created loggers
 _loggers = {}
 
-# 默认配置
+# Default configuration
 DEFAULT_LOG_LEVEL = logging.INFO
 DEFAULT_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 DEFAULT_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-DEFAULT_LOG_DIR = "logs"
+DEFAULT_LOG_DIR = None
 DEFAULT_MAX_BYTES = 10 * 1024 * 1024  # 10MB
 DEFAULT_BACKUP_COUNT = 5
 
@@ -43,24 +43,24 @@ def setup_logger(
     propagate: bool = False,
 ) -> logging.Logger:
     """
-    设置日志记录器。
+    Set up a logger.
 
     Args:
-        name: 日志记录器名称，通常使用模块名称
-        level: 日志级别，可以是数字或字符串（DEBUG, INFO, WARNING, ERROR, CRITICAL）
-        log_format: 日志格式
-        date_format: 日期格式
-        log_file: 日志文件名称，如果为None则自动生成（基于name）
-        log_dir: 日志文件目录
-        console: 是否输出到控制台
-        max_bytes: 单个日志文件最大字节数，超过后轮转
-        backup_count: 保留的轮转文件数量
-        propagate: 是否将日志传递给上级记录器
+        name: Logger name, usually use module name
+        level: Log level, can be number or string (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        log_format: Log format
+        date_format: Date format
+        log_file: Log file name, if None then auto-generate (based on name)
+        log_dir: Log file directory
+        console: Whether to output to console
+        max_bytes: Maximum bytes per log file, rotate when exceeded
+        backup_count: Number of backup files to keep
+        propagate: Whether to pass logs to parent logger
 
     Returns:
-        配置好的日志记录器
+        Configured logger
     """
-    # 日志级别处理
+    # Handle log level
     if isinstance(level, str):
         level = getattr(logging, level.upper(), DEFAULT_LOG_LEVEL)
 
@@ -146,4 +146,4 @@ atexit.register(flush_all_loggers)
 
 
 # 创建根记录器
-root_logger = setup_logger("hailo_toolbox", console=True, log_file="hailo_toolbox.log")
+# root_logger = setup_logger("hailo_toolbox", console=True, log_file="hailo_toolbox.log")
