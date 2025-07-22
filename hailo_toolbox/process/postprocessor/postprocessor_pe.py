@@ -267,6 +267,7 @@ class YOLOv8PosePostprocessor(BasePostprocessor):
         self,
         raw_outputs: Dict[str, np.ndarray],
         original_shape: Optional[Tuple[int, int]] = None,
+        input_shape: Optional[Tuple[int, int]] = None,
         **kwargs,
     ) -> Dict[str, np.ndarray]:
         """
@@ -410,13 +411,17 @@ class YOLOv8PosePostprocessor(BasePostprocessor):
         # Scale coordinates to original image size if needed
         if original_shape is not None:
             output = self._scale_output_to_original(output, original_shape, image_dims)
+        # print(output["bboxes"].shape)
 
-        keypoint_result = KeypointResult(
-            keypoints=output["keypoints"],
-            scores=output["scores"],
-            boxes=output["bboxes"],
-            joint_scores=output["joint_scores"],
-        )
+        keypoint_result = [
+            KeypointResult(
+                keypoints=output["keypoints"][i],
+                scores=output["scores"][i],
+                boxes=output["bboxes"][i],
+                joint_scores=output["joint_scores"][i],
+            )
+            for i in range(batch_size)
+        ]
         return keypoint_result
 
         # except Exception as e:

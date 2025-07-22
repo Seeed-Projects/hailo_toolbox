@@ -1,4 +1,4 @@
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Optional
 import numpy as np
 from hailo_toolbox.process.base import BasePostprocessor
 from hailo_toolbox.process.results.image_denoising import ImageDenoisingResult
@@ -11,11 +11,14 @@ class ImageDenoisingPostprocessor(BasePostprocessor):
         super().__init__()
 
     def postprocess(
-        self, predictions: Dict[str, np.ndarray], original_shape: Tuple[int, int]
+        self,
+        predictions: Dict[str, np.ndarray],
+        original_shape: Tuple[int, int],
+        input_shape: Optional[Tuple[int, int]] = None,
     ) -> List[ImageDenoisingResult]:
         results = []
         for key, value in predictions.items():
-            print(key, value.shape)
+            # print(key, value.shape)
             for v in value:
                 results.append(ImageDenoisingResult(v, original_shape))
         return results

@@ -91,6 +91,7 @@ class YOLOv8DetPostprocessor(BasePostprocessor):
         self,
         raw_outputs: Dict[str, np.ndarray],
         original_shape: Optional[Tuple[int, int]] = None,
+        input_shape: Optional[Tuple[int, int]] = None,
     ) -> DetectionResult:
         """
         Postprocess raw YOLOv8 detection outputs.
@@ -135,15 +136,15 @@ class YOLOv8DetPostprocessor(BasePostprocessor):
             DetectionResult containing processed detections
         """
         # Extract the main detection output
-        detection_output = self._extract_detection_output(raw_outputs)
+        detection_outputs = self._extract_detection_output(raw_outputs)
 
         # Validate output format
-        if len(detection_output.shape) != 3:
+        if len(detection_outputs.shape) != 3:
             raise ValueError(
-                f"Expected 3D detection output for non-NMS format, got shape {detection_output.shape}"
+                f"Expected 3D detection output for non-NMS format, got shape {detection_outputs.shape}"
             )
 
-        batch_size, num_detections, num_features = detection_output.shape
+        batch_size, num_detections, num_features = detection_outputs.shape
         if num_features != 6:
             raise ValueError(
                 f"Expected 6 features for non-NMS format [x1, y1, x2, y2, conf, label], "
@@ -151,41 +152,46 @@ class YOLOv8DetPostprocessor(BasePostprocessor):
             )
 
         # Process first batch only
-        detection_output = detection_output[0]  # Shape: (num_detections, 6)
+        detection_output = detection_outputs[0]  # Shape: (num_detections, 6)
+        results = []
+        for detection_output in detection_outputs:
 
-        # Extract components
-        boxes = detection_output[:, :4].astype(np.float32)  # [x1, y1, x2, y2]
-        boxes = self.yxyx_to_xyxy(boxes)
-        scores = detection_output[:, 4].astype(np.float32)  # confidence
-        class_ids = detection_output[:, 5].astype(np.int32)  # class labels
+            # Extract components
+            boxes = detection_output[:, :4].astype(np.float32)  # [x1, y1, x2, y2]
+            boxes = self.yxyx_to_xyxy(boxes)
+            scores = detection_output[:, 4].astype(np.float32)  # confidence
+            class_ids = detection_output[:, 5].astype(np.int32)  # class labels
 
-        # Apply confidence filtering
-        valid_detections = scores >= self.config.det_conf_threshold
-        if not np.any(valid_detections):
-            logger.debug("No detections above confidence threshold")
-            return self._create_empty_result()
+            # Apply confidence filtering
+            valid_detections = scores >= self.config.det_conf_threshold
+            if not np.any(valid_detections):
+                logger.debug("No detections above confidence threshold")
+                return self._create_empty_result()
 
-        boxes = boxes[valid_detections]
-        scores = scores[valid_detections]
-        class_ids = class_ids[valid_detections]
+            boxes = boxes[valid_detections]
+            scores = scores[valid_detections]
+            class_ids = class_ids[valid_detections]
 
-        # Limit number of detections by confidence ranking
-        if len(boxes) > self.config.det_max_detections:
-            # Sort by confidence and keep top detections
-            top_indices = np.argsort(scores)[::-1][: self.config.det_max_detections]
-            boxes = boxes[top_indices]
-            scores = scores[top_indices]
-            class_ids = class_ids[top_indices]
+            # Limit number of detections by confidence ranking
+            if len(boxes) > self.config.det_max_detections:
+                # Sort by confidence and keep top detections
+                top_indices = np.argsort(scores)[::-1][: self.config.det_max_detections]
+                boxes = boxes[top_indices]
+                scores = scores[top_indices]
+                class_ids = class_ids[top_indices]
 
-        # Scale boxes to original image size if needed
-        if original_shape is not None:
-            boxes = scale_boxes(boxes, original_shape, self.config.input_shape)
-            # Clip boxes to image boundaries
-            boxes = self._clip_boxes(boxes, original_shape)
+            # Scale boxes to original image size if needed
+            if original_shape is not None:
+                boxes = scale_boxes(boxes, original_shape, self.config.input_shape)
+                # Clip boxes to image boundaries
+                boxes = self._clip_boxes(boxes, original_shape)
 
-        logger.debug(f"Postprocessed {len(boxes)} detections (without NMS)")
+            logger.debug(f"Postprocessed {len(boxes)} detections (without NMS)")
 
-        return DetectionResult(boxes=boxes, scores=scores, class_ids=class_ids)
+            results.append(
+                DetectionResult(boxes=boxes, scores=scores, class_ids=class_ids)
+            )
+        return results
 
     def yxyx_to_xyxy(self, boxes: np.ndarray) -> np.ndarray:
         """

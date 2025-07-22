@@ -231,6 +231,7 @@ class ImagePreprocessor(BasePreprocessor):
         self,
         config: Optional[PreprocessConfig] = None,
         target_size: Optional[Tuple[int, int]] = None,
+        output_format: Optional[str] = None,
     ):
         """
         Initialize the image preprocessor.
@@ -241,6 +242,8 @@ class ImagePreprocessor(BasePreprocessor):
         self.config = config or PreprocessConfig()
         if target_size is not None:
             self.config.target_size = target_size
+        if output_format is not None:
+            self.config.output_format = output_format
         self.pipeline = None
         self._build_pipeline()
 

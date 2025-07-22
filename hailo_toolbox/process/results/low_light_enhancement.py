@@ -7,9 +7,13 @@ from typing import Tuple
 class LowLightEnhancementResult:
     enhanced_image: np.ndarray
     original_shape: Tuple[int, int]
+    input_shape: Tuple[int, int]
 
     def get_enhanced_image(self) -> np.ndarray:
         return (self.enhanced_image.clip(0, 1) * 255.0).astype(np.uint8)
 
     def get_original_shape(self) -> Tuple[int, int]:
         return self.original_shape
+
+    def get_input_shape(self) -> Tuple[int, int]:
+        return self.input_shape

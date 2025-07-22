@@ -18,31 +18,11 @@ def load_imagenet_classes() -> Dict[int, str]:
         return yaml.load(f, Loader=yaml.FullLoader)
 
 
-class BaseClassifyPostprocessor(BasePostprocessor):
-    imagenet_classes = load_imagenet_classes()
-
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
-        super().__init__(config)
-
-    def postprocess(self, results: Dict[str, np.ndarray]) -> List[ImageNetResult]:
-        """
-        基础后处理方法，子类应该重写此方法
-
-        Args:
-            results: 模型输出结果字典
-
-        Returns:
-            List[ImageNetResult]: 处理后的结果列表
-        """
-        # 这是一个基础实现，子类应该重写
-        # 这里只是一个占位符实现
-        raise NotImplementedError("子类必须实现 postprocess 方法")
-
-
 @CALLBACK_REGISTRY.registryPostProcessor("mobilenetv1", "resnet18")
-class ClassifyPostprocessor(BaseClassifyPostprocessor):
+class ClassifyPostprocessor(BasePostprocessor):
     with_softmax = False
     top_k = 5
+    imagenet_classes = load_imagenet_classes()
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__(config)
@@ -51,38 +31,39 @@ class ClassifyPostprocessor(BaseClassifyPostprocessor):
         self,
         preds: Dict[str, np.ndarray],
         original_shape: Optional[Tuple[int, int]] = None,
+        input_shape: Optional[Tuple[int, int]] = None,
     ) -> List[ImageNetResult]:
         """
-        处理分类模型的输出
+        Process classification model outputs
 
         Args:
-            preds: 字典，key为输出层名称，value为形状[B, number_class]的numpy数组
-            original_shape: 原始图像尺寸（可选）
+            preds: Dictionary with key as output layer name, value as numpy array with shape [B, number_class]
+            original_shape: Original image size (optional)
 
         Returns:
-            List[ImageNetResult]: 每个batch样本对应一个ImageNetResult对象
+            List[ImageNetResult]: Each batch sample corresponds to one ImageNetResult object
         """
         results = []
 
         for k, multibatch_results in preds.items():
-            print(f"Processing output '{k}' with shape: {multibatch_results.shape}")
+            # print(f"Processing output '{k}' with shape: {multibatch_results.shape}")
 
-            # 处理每个batch中的样本
+            # Process each sample in the batch
             for batch_idx, v in enumerate(multibatch_results):
-                # 如果需要，应用softmax
+                # Apply softmax if needed
                 if self.with_softmax:
                     v = _softmax(v)
 
-                # 获取top k结果的索引（从小到大排序，取最后k个）
+                # Get top k result indices (sorted from small to large, take the last k)
                 top_k_indices = np.argsort(v)[-self.top_k :]
-                # 反转顺序，使得最高分在前
+                # Reverse order so highest score comes first
                 top_k_indices = top_k_indices[::-1]
 
-                # 获取对应的分数和类别ID
+                # Get corresponding scores and class IDs
                 top_k_scores = v[top_k_indices]
                 top_k_classes = top_k_indices
 
-                # 获取类别名称
+                # Get class names
                 top_k_names = []
                 for class_id in top_k_classes:
                     class_name = self.imagenet_classes.get(
@@ -90,7 +71,7 @@ class ClassifyPostprocessor(BaseClassifyPostprocessor):
                     )
                     top_k_names.append(class_name)
 
-                # 创建ImageNetResult对象
+                # Create ImageNetResult object
                 result = ImageNetResult(
                     class_id_top5=top_k_classes,
                     score_top5=top_k_scores,

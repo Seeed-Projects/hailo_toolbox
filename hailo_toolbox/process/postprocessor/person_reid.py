@@ -12,11 +12,14 @@ class PersonReIDPostprocessor(BasePostprocessor):
         super().__init__()
 
     def postprocess(
-        self, predictions: Dict[str, np.ndarray], original_shape: Tuple[int, int]
+        self,
+        predictions: Dict[str, np.ndarray],
+        original_shape: Tuple[int, int],
+        input_shape: Tuple[int, int],
     ) -> List[PersonReIDResult]:
         results = []
         for key, value in predictions.items():
-            print(key, value.shape)
+            # print(key, value.shape)
             for v in value:
                 results.append(PersonReIDResult(v, original_shape))
         return results

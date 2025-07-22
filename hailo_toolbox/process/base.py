@@ -296,6 +296,7 @@ class BasePostprocessor(ABC):
         self,
         raw_outputs: Dict[str, np.ndarray],
         original_shape: Optional[Tuple[int, int]] = None,
+        input_shape: Optional[Tuple[int, int]] = None,
     ) -> Any:
         """
         Callable interface for postprocessing.
@@ -307,7 +308,7 @@ class BasePostprocessor(ABC):
         Returns:
             Structured postprocessing results
         """
-        return self.postprocess(raw_outputs, original_shape)
+        return self.postprocess(raw_outputs, original_shape, input_shape)
 
 
 def non_max_suppression(

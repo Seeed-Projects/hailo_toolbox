@@ -29,41 +29,44 @@ class VideoClassificationPostprocessor(BasePostprocessor):
             self.label_map = load_label_map("examples/kinetics400.yaml")
 
     def postprocess(
-        self, preds: Dict[str, np.ndarray], original_shape: Tuple[int, int]
+        self,
+        preds: Dict[str, np.ndarray],
+        original_shape: Tuple[int, int],
+        input_shape: Tuple[int, int],
     ) -> List[VideoClassificationResult]:
         results = []
-        print(self.label_map.keys())
+        # print(self.label_map.keys())
         for k, multibatch_results in preds.items():
-            print(f"Processing output '{k}' with shape: {multibatch_results.shape}")
+            # print(f"Processing output '{k}' with shape: {multibatch_results.shape}")
 
-            # 处理每个batch中的样本
+            # Process each sample in the batch
             for batch_idx, v in enumerate(multibatch_results):
-                # 如果需要，应用softmax
+                # Apply softmax if needed
                 v = v.reshape(-1)
                 v = softmax(v)
 
-                # 获取top k结果的索引（从小到大排序，取最后k个）
+                # Get top k result indices (sorted from small to large, take the last k)
                 top_k_indices = np.argsort(v)[-self.top_k :]
-                # 反转顺序，使得最高分在前
+                # Reverse order so highest score comes first
                 top_k_indices = top_k_indices[::-1]
 
-                # 获取对应的分数和类别ID
-                print(top_k_indices)
+                # Get corresponding scores and class IDs
                 top_k_scores = v[top_k_indices]
                 top_k_classes = top_k_indices
 
-                # 获取类别名称
+                # Get class names
                 top_k_names = []
                 for class_id in top_k_classes:
                     class_name = self.label_map.get(class_id, f"Unknown_{class_id}")
                     top_k_names.append(class_name)
 
-                # 创建ImageNetResult对象
+                # Create ImageNetResult object
                 result = VideoClassificationResult(
                     class_index_top5=top_k_classes,
                     score_top5=top_k_scores,
                     class_name_top5=top_k_names,
                     original_shape=original_shape,
+                    input_shape=input_shape,
                 )
 
                 results.append(result)

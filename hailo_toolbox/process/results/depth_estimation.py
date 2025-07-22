@@ -8,22 +8,23 @@ from typing import Tuple
 class DepthEstimationResult:
     depth: np.ndarray
     original_shape: Tuple[int, int]
+    input_shape: Tuple[int, int]
 
     def get_depth(self) -> np.ndarray:
         return self.depth.astype(np.uint8)
 
     def get_depth_normalized(self) -> np.ndarray:
         """
-        获取归一化的深度图，适合可视化和保存
-        将深度值归一化到0-255范围内的uint8格式
+        Get normalized depth map suitable for visualization and saving
+        Normalize depth values to uint8 format in 0-255 range
         """
         depth = self.depth.copy()
 
-        # 处理无效值（如果有的话）
+        # Handle invalid values (if any)
         if np.any(np.isnan(depth)) or np.any(np.isinf(depth)):
             depth = np.nan_to_num(depth, nan=0.0, posinf=0.0, neginf=0.0)
 
-        # 归一化到0-255范围
+        # Normalize to 0-255 range
         depth_min = np.min(depth)
         depth_max = np.max(depth)
 
@@ -32,7 +33,13 @@ class DepthEstimationResult:
         else:
             depth_normalized = np.zeros_like(depth)
 
-        # 转换为uint8格式
+        # Convert to uint8 format
         depth_uint8 = (depth_normalized * 255).astype(np.uint8)
 
         return depth_uint8
+
+    def get_original_shape(self) -> Tuple[int, int]:
+        return self.original_shape
+
+    def get_input_shape(self) -> Tuple[int, int]:
+        return self.input_shape

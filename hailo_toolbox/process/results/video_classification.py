@@ -9,6 +9,7 @@ class VideoClassificationResult:
     class_index_top5: List[int]
     score_top5: List[float]
     original_shape: Tuple[int, int]
+    input_shape: Tuple[int, int]
 
     def get_class_name_top5(self) -> List[str]:
         return self.class_name_top5
@@ -21,3 +22,6 @@ class VideoClassificationResult:
 
     def get_original_shape(self) -> Tuple[int, int]:
         return self.original_shape
+
+    def get_input_shape(self) -> Tuple[int, int]:
+        return self.input_shape

@@ -7,9 +7,13 @@ from typing import Tuple
 class SuperResolutionResult:
     image: np.ndarray
     original_shape: Tuple[int, int]
+    input_shape: Tuple[int, int]
 
     def get_image(self):
         return (self.image * 255).astype(np.uint8)[..., ::-1]
 
     def get_original_shape(self):
         return self.original_shape
+
+    def get_input_shape(self):
+        return self.input_shape

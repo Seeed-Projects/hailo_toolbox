@@ -373,7 +373,7 @@ def _yolov8_decoding(
     return boxes
 
 
-@CALLBACK_REGISTRY.registryPostProcessor("yolov8mseg", "yolov8nseg")
+@CALLBACK_REGISTRY.registryPostProcessor("yolov8mseg", "yolov8nseg", "yolov8sseg")
 class YOLOv8SegPostprocessor(BasePostprocessor):
     """
     Postprocessor for YOLOv8 instance segmentation models.
@@ -460,6 +460,7 @@ class YOLOv8SegPostprocessor(BasePostprocessor):
         self,
         raw_outputs: Dict[str, np.ndarray],
         original_shape: Optional[Tuple[int, int]] = None,
+        input_shape: Optional[Tuple[int, int]] = None,
         **kwargs,
     ) -> SegmentationResult:
         """
@@ -568,6 +569,8 @@ class YOLOv8SegPostprocessor(BasePostprocessor):
                     scores=np.array(nms_result["detection_scores"]),
                     class_ids=np.array(nms_result["detection_classes"]).astype(int),
                     boxes=boxes,
+                    input_shape=input_shape,
+                    original_shape=original_shape,
                 )
             else:
                 result = self._create_empty_result()

@@ -23,6 +23,9 @@ class Result:
     def get_class_id(self) -> int:
         return self.class_id
 
+    def get_mask(self) -> np.ndarray:
+        return self.masks
+
     def __repr__(self):
         return f"Result(boxes={self.boxes}, score={self.score}, class_id={self.class_id}), masks_shape={self.masks.shape if self.masks is not None else None}"
 
@@ -38,9 +41,15 @@ class SegmentationResult:
     class_ids: Optional[np.ndarray] = None  # Shape: (N,) - class indices
     boxes: Optional[np.ndarray] = None  # Shape: (N, 4) - bounding boxes
     index: int = 0
+    input_shape: Optional[Tuple[int, int]] = None
+    original_shape: Optional[Tuple[int, int]] = None
 
     def __len__(self) -> int:
         return len(self.masks) if len(self.masks.shape) == 3 else 1
+
+    def __post_init__(self):
+        self.boxes[:, [0, 2]] *= self.original_shape[1]
+        self.boxes[:, [1, 3]] *= self.original_shape[0]
 
     def get_boxes_xyxy(self) -> np.ndarray:
         return self.boxes
@@ -50,6 +59,9 @@ class SegmentationResult:
 
     def get_class_ids(self) -> np.ndarray:
         return self.class_ids
+
+    def get_masks(self) -> np.ndarray:
+        return self.masks
 
     def __iter__(self):
         return self

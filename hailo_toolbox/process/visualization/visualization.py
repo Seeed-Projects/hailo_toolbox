@@ -26,8 +26,11 @@ import random
 import time
 import gc  # Import garbage collector for memory management
 from abc import ABC, abstractmethod
+from ..results.det import DetectionResult
+from ..results.seg import SegmentationResult
+from ..results.pose import KeypointResult
 
-from ..base import DetectionResult, SegmentationResult, KeypointResult
+# from ..base import DetectionResult, SegmentationResult, KeypointResult
 from hailo_toolbox.inference.core import CALLBACK_REGISTRY
 
 
@@ -924,8 +927,8 @@ class SegmentationVisualization(BaseVisualization):
             for i, box in enumerate(boxes):
                 # Scale to image dimensions (assuming normalized coordinates)
                 # box = box * image.shape[1]  # TODO: Make this configurable
-                box[::2] *= image.shape[1]
-                box[1::2] *= image.shape[0]
+                # box[::2] *= image.shape[1]
+                # box[1::2] *= image.shape[0]
                 x1, y1, x2, y2 = box.astype(int)
 
                 # Ensure coordinates are within image bounds
@@ -1148,7 +1151,7 @@ class KeypointVisualization(BaseVisualization):
 
         # Visualize each person
         for i, (bbox, score, person_keypoints) in enumerate(
-            zip(bboxes, scores[0], keypoints)
+            zip(bboxes, scores, keypoints)
         ):
             # Extract scalar score value
             if isinstance(score, np.ndarray):

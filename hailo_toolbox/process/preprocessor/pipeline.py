@@ -276,10 +276,10 @@ class PreprocessPipeline:
             print("No timing statistics available. Enable timing to collect stats.")
             return
 
-        print(f"\nTiming Statistics for Pipeline: {self.name}")
-        print("-" * 70)
-        print(f"{'Transform':<25} {'Calls':<8} {'Total (s)':<12} {'Avg (s)':<12}")
-        print("-" * 70)
+        # print(f"\nTiming Statistics for Pipeline: {self.name}")
+        # print("-" * 70)
+        # print(f"{'Transform':<25} {'Calls':<8} {'Total (s)':<12} {'Avg (s)':<12}")
+        # print("-" * 70)
 
         total_time = 0.0
         total_calls = 0
@@ -292,10 +292,10 @@ class PreprocessPipeline:
             total_time += stats["total_time"]
             total_calls += stats["call_count"]
 
-        print("-" * 70)
+        # print("-" * 70)
         avg_total = total_time / total_calls if total_calls > 0 else 0.0
-        print(f"{'TOTAL':<25} {total_calls:<8} {total_time:<12.4f} {avg_total:<12.4f}")
-        print("-" * 70)
+        # print(f"{'TOTAL':<25} {total_calls:<8} {total_time:<12.4f} {avg_total:<12.4f}")
+        # print("-" * 70)
 
     def __len__(self) -> int:
         """Return the number of transforms in the pipeline."""

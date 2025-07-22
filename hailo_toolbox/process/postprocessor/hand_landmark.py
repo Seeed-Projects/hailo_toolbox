@@ -15,13 +15,14 @@ class HandLandmarkPostprocessor(BasePostprocessor):
         self,
         preds: Dict[str, np.ndarray],
         original_shape: Optional[Tuple[int, int]] = None,
+        input_shape: Optional[Tuple[int, int]] = None,
     ) -> List[HandLandmarkResult]:
         results = []
         for output_name, pred in preds.items():
-            print(f"Processing output '{output_name}' with shape: {pred.shape}")
-            if pred.shape[-1] != 63:
+            # print(f"Processing output '{output_name}' with shape: {pred.shape}")
+            if pred.shape[-1] != 63 or output_name != "hand_landmark_lite_fc1":
                 continue
             for p in pred:
-                results.append(HandLandmarkResult(p, original_shape))
+                results.append(HandLandmarkResult(p, original_shape, input_shape))
             break
         return results

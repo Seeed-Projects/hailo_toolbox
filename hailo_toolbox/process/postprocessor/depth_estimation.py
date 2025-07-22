@@ -3,8 +3,10 @@ from hailo_toolbox.inference import CALLBACK_REGISTRY
 from typing import Dict, Optional, Any, List, Tuple
 import numpy as np
 import yaml
-
+import cv2
+import io
 from hailo_toolbox.process.results.depth_estimation import DepthEstimationResult
+import matplotlib.pyplot as plt
 
 
 def _sigmoid(x: np.ndarray) -> np.ndarray:
@@ -21,12 +23,13 @@ class EstimationPostprocessor(BasePostprocessor):
         self,
         preds: Dict[str, np.ndarray],
         original_shape: Optional[Tuple[int, int]] = None,
+        input_shape: Optional[Tuple[int, int]] = None,
     ) -> List[DepthEstimationResult]:
         results = []
 
         for output_name, pred in preds.items():
 
-            # 确保预测输出的shape符合预期 [B, H, W, 1]
+            # Ensure prediction output shape meets expectation [B, H, W, 1]
             if len(pred.shape) != 4:
                 raise ValueError(
                     f"Expected 4D tensor with shape [B, H, W, 1], got shape {pred.shape}"
@@ -37,18 +40,21 @@ class EstimationPostprocessor(BasePostprocessor):
             if channels != 1:
                 raise ValueError(f"Expected depth channel to be 1, got {channels}")
 
-            # 为每个batch创建一个DepthEstimationResult
+            # Create a DepthEstimationResult for each batch
             for batch_idx in range(batch_size):
-                # 提取单个batch的深度数据，去掉最后一个维度 [H, W]
+                # Extract depth data for single batch, remove last dimension [H, W]
                 depth_map = pred[batch_idx, :, :, 0]
-
-                # 如果没有提供original_shape，使用深度图的shape
+                # If original_shape is not provided, use depth map shape
                 if original_shape is None:
                     shape = (height, width)
                 else:
                     shape = original_shape
-                # 创建DepthEstimationResult对象
-                result = DepthEstimationResult(depth=depth_map, original_shape=shape)
+                # Create DepthEstimationResult object
+                result = DepthEstimationResult(
+                    depth=depth_map,
+                    original_shape=shape,
+                    input_shape=input_shape,
+                )
                 results.append(result)
 
         return results
@@ -63,12 +69,13 @@ class EstimationPostprocessor(BasePostprocessor):
         self,
         preds: Dict[str, np.ndarray],
         original_shape: Optional[Tuple[int, int]] = None,
+        input_shape: Optional[Tuple[int, int]] = None,
     ) -> List[DepthEstimationResult]:
         results = []
 
         for output_name, pred in preds.items():
 
-            # 确保预测输出的shape符合预期 [B, H, W, 1]
+            # Ensure prediction output shape meets expectation [B, H, W, 1]
             if len(pred.shape) != 4:
                 raise ValueError(
                     f"Expected 4D tensor with shape [B, H, W, 1], got shape {pred.shape}"
@@ -78,20 +85,22 @@ class EstimationPostprocessor(BasePostprocessor):
             if channels != 1:
                 raise ValueError(f"Expected depth channel to be 1, got {channels}")
 
-            # 为每个batch创建一个DepthEstimationResult
+            # Create a DepthEstimationResult for each batch
             for batch_idx in range(batch_size):
-                # 提取单个batch的深度数据，去掉最后一个维度 [H, W]
+                # Extract depth data for single batch, remove last dimension [H, W]
                 depth_map = pred[batch_idx, :, :, 0]
                 depth_map = np.reciprocal(_sigmoid(depth_map) * 10 + 0.009)
 
-                # 如果没有提供original_shape，使用深度图的shape
+                # If original_shape is not provided, use depth map shape
                 if original_shape is None:
                     shape = (height, width)
                 else:
                     shape = original_shape
 
-                # 创建DepthEstimationResult对象
-                result = DepthEstimationResult(depth=depth_map, original_shape=shape)
+                # Create DepthEstimationResult object
+                result = DepthEstimationResult(
+                    depth=depth_map, original_shape=shape, input_shape=input_shape
+                )
                 results.append(result)
 
         return results

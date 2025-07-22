@@ -13,11 +13,16 @@ class LowLightEnhancementPostprocessor(BasePostprocessor):
         super().__init__()
 
     def postprocess(
-        self, predictions: Dict[str, np.ndarray], original_shape: Tuple[int, int]
+        self,
+        predictions: Dict[str, np.ndarray],
+        original_shape: Tuple[int, int],
+        input_shape: Tuple[int, int],
     ) -> List[LowLightEnhancementResult]:
         results = []
         for key, value in predictions.items():
-            print(key, value.shape)
+            # print(key, value.shape)
             for v in value:
-                results.append(LowLightEnhancementResult(v, original_shape))
+                results.append(
+                    LowLightEnhancementResult(v, original_shape, input_shape)
+                )
         return results

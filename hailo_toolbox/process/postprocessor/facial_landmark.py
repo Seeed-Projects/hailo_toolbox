@@ -383,28 +383,28 @@ def simple_landmarks_from_params(
     face_3dmm_params: np.ndarray, img_dims: Tuple[int, int]
 ) -> np.ndarray:
     """
-    简化版本：直接从3DMM参数生成2D关键点，不需要BFM模型文件。
-    这是一个近似实现，用于快速测试和演示。
+        Simplified version: directly generate 2D landmarks from 3DMM parameters, no BFM model file needed.
+    This is an approximate implementation for quick testing and demonstration.
 
     Args:
-        face_3dmm_params: 3DMM参数 [62,]
-        img_dims: 图像尺寸 (height, width)
+        face_3dmm_params: 3DMM parameters [62,]
+        img_dims: Image dimensions (height, width)
 
     Returns:
-        2D关键点 [N, 2]，其中N是关键点数量
+        2D landmarks [N, 2], where N is the number of landmarks
     """
     img_h, img_w = img_dims
     center_x, center_y = img_w / 2, img_h / 2
 
-    # 使用3DMM参数的前几个值来影响关键点位置
-    # 这是一个简化的映射，实际应该使用BFM模型
+    # Use the first few values of 3DMM parameters to influence landmark positions
+    # This is a simplified mapping, should actually use BFM model
     param_influence = face_3dmm_params[:12]
 
-    # 标准68点面部关键点模板（归一化坐标）
-    # 这些是基于标准面部关键点分布的近似位置
+    # Standard 68-point facial landmark template (normalized coordinates)
+    # These are approximate positions based on standard facial landmark distribution
     landmarks_template = np.array(
         [
-            # 脸部轮廓 (17个点: 0-16)
+            # Face contour (17 points: 0-16)
             [-0.35, -0.25],
             [-0.32, -0.15],
             [-0.29, -0.05],
@@ -422,19 +422,19 @@ def simple_landmarks_from_params(
             [0.29, -0.05],
             [0.32, -0.15],
             [0.35, -0.25],
-            # 左眉毛 (5个点: 17-21)
+            # Left eyebrow (5 points: 17-21)
             [-0.25, -0.35],
             [-0.18, -0.38],
             [-0.10, -0.38],
             [-0.05, -0.35],
             [-0.02, -0.32],
-            # 右眉毛 (5个点: 22-26)
+            # Right eyebrow (5 points: 22-26)
             [0.02, -0.32],
             [0.05, -0.35],
             [0.10, -0.38],
             [0.18, -0.38],
             [0.25, -0.35],
-            # 鼻子 (9个点: 27-35)
+            # Nose (9 points: 27-35)
             [0.0, -0.25],
             [-0.02, -0.18],
             [0.02, -0.18],
@@ -444,21 +444,21 @@ def simple_landmarks_from_params(
             [-0.03, -0.08],
             [0.0, -0.05],
             [0.03, -0.08],
-            # 左眼 (6个点: 36-41)
+            # Left eye (6 points: 36-41)
             [-0.18, -0.22],
             [-0.12, -0.25],
             [-0.06, -0.25],
             [-0.06, -0.18],
             [-0.12, -0.18],
             [-0.18, -0.22],
-            # 右眼 (6个点: 42-47)
+            # Right eye (6 points: 42-47)
             [0.18, -0.22],
             [0.12, -0.25],
             [0.06, -0.25],
             [0.06, -0.18],
             [0.12, -0.18],
             [0.18, -0.22],
-            # 嘴巴外轮廓 (12个点: 48-59)
+            # Mouth outer contour (12 points: 48-59)
             [-0.12, 0.12],
             [-0.08, 0.08],
             [-0.04, 0.05],
@@ -471,7 +471,7 @@ def simple_landmarks_from_params(
             [0.0, 0.20],
             [-0.04, 0.20],
             [-0.08, 0.18],
-            # 嘴巴内轮廓 (8个点: 60-67)
+            # Mouth inner contour (8 points: 60-67)
             [-0.08, 0.12],
             [-0.04, 0.10],
             [0.0, 0.10],
@@ -484,11 +484,11 @@ def simple_landmarks_from_params(
         dtype=np.float32,
     )
 
-    # 使用参数影响关键点位置
-    # 这是一个简化的变换，实际的3DMM会更复杂
-    scale_factor = min(img_w, img_h) * 0.25  # 基础缩放
+    # Use parameters to influence landmark positions
+    # This is a simplified transformation, actual 3DMM would be more complex
+    scale_factor = min(img_w, img_h) * 0.25  # Base scaling
 
-    # 使用前几个参数调整缩放和位置
+    # Use first few parameters to adjust scaling and position
     scale_adjustment = 1.0 + param_influence[0] * 0.1  # 轻微调整缩放
     offset_x = param_influence[1] * 5  # 水平偏移
     offset_y = param_influence[2] * 5  # 垂直偏移
@@ -539,7 +539,10 @@ class FacialLandmarkPostprocessor(BasePostprocessor):
             print("Warning: TDDFA model typically expects square input images")
 
     def postprocess(
-        self, predictions: Dict[str, np.ndarray], original_shape: Tuple[int, int]
+        self,
+        predictions: Dict[str, np.ndarray],
+        original_shape: Tuple[int, int],
+        input_shape: Optional[Tuple[int, int]] = None,
     ) -> List[FacialLandmarkResult]:
         """
         Postprocess TDDFA model predictions to facial landmarks.
@@ -559,49 +562,56 @@ class FacialLandmarkPostprocessor(BasePostprocessor):
             # Get batch size
             batch_size = value.shape[0]
 
-            # Reshape predictions to [batch_size, 62]
-            face_3dmm_params = value.reshape(batch_size, -1)
+            # # Reshape predictions to [batch_size, 62]
+            # face_3dmm_params = value.reshape(batch_size, -1)
 
-            # Apply rescaling (equivalent to TensorFlow version)
-            face_3dmm_params = (
-                face_3dmm_params * TDDFA_RESCALE_PARAMS["std"]
-                + TDDFA_RESCALE_PARAMS["mean"]
-            )
+            # # Apply rescaling (equivalent to TensorFlow version)
+            # face_3dmm_params = (
+            #     face_3dmm_params * TDDFA_RESCALE_PARAMS["std"]
+            #     + TDDFA_RESCALE_PARAMS["mean"]
+            # )
 
             # Process each face in the batch
             for i in range(batch_size):
-                if self.use_full_3d:
-                    # Use full 3D processing with BFM model
-                    try:
-                        # Create default ROI box (full image)
-                        roi_box = np.array([0, 0, self.img_dims[1], self.img_dims[0]])
+                # if self.use_full_3d:
+                #     # Use full 3D processing with BFM model
+                #     try:
+                #         # Create default ROI box (full image)
+                #         roi_box = np.array([0, 0, self.img_dims[1], self.img_dims[0]])
 
-                        # Convert 3DMM parameters to 3D landmarks
-                        landmarks_3d = face_3dmm_to_landmarks_np(
-                            face_3dmm_params[i], self.img_dims, roi_box
-                        )
+                #         # Convert 3DMM parameters to 3D landmarks
+                #         landmarks_3d = face_3dmm_to_landmarks_np(
+                #             face_3dmm_params[i], self.img_dims, roi_box
+                #         )
 
-                        result = FacialLandmarkResult(
-                            landmarks=landmarks_3d, original_shape=original_shape
-                        )
-                    except Exception as e:
-                        print(f"Full 3D processing failed: {e}")
-                        print("Falling back to simplified processing...")
-                        # Fall back to simplified processing
-                        landmarks_2d = simple_landmarks_from_params(
-                            face_3dmm_params[i], self.img_dims
-                        )
-                        result = FacialLandmarkResult(
-                            landmarks=landmarks_2d, original_shape=original_shape
-                        )
-                else:
-                    # Use simplified processing (default)
-                    landmarks_2d = simple_landmarks_from_params(
-                        face_3dmm_params[i], self.img_dims
-                    )
-                    result = FacialLandmarkResult(
-                        landmarks=landmarks_2d, original_shape=original_shape
-                    )
+                #         result = FacialLandmarkResult(
+                #             landmarks=landmarks_3d,
+                #             original_shape=original_shape,
+                #             input_shape=input_shape,
+                #         )
+                #     except Exception as e:
+                #         print(f"Full 3D processing failed: {e}")
+                #         print("Falling back to simplified processing...")
+                #         # Fall back to simplified processing
+                #         landmarks_2d = simple_landmarks_from_params(
+                #             face_3dmm_params[i], self.img_dims
+                #         )
+                #         result = FacialLandmarkResult(
+                #             landmarks=landmarks_2d,
+                #             original_shape=original_shape,
+                #             input_shape=input_shape,
+                #         )
+                # else:
+                # Use simplified processing (default)
+                # landmarks_2d = simple_landmarks_from_params(
+                #     face_3dmm_params[i], self.img_dims
+                # )
+                # print(landmarks_2d.shape)
+                result = FacialLandmarkResult(
+                    landmarks=value[i],
+                    original_shape=original_shape,
+                    input_shape=input_shape,
+                )
 
                 results.append(result)
 

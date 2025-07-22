@@ -14,11 +14,12 @@ class RealESRGANPostprocessor(BasePostprocessor):
         self,
         preds: Dict[str, np.ndarray],
         original_shape: Optional[Tuple[int, int]] = None,
+        input_shape: Optional[Tuple[int, int]] = None,
     ):
         results = []
         for output_name, pred in preds.items():
-            print(f"Processing output '{output_name}' with shape: {pred.shape}")
+            # print(f"Processing output '{output_name}' with shape: {pred.shape}")
             for p in pred:
-                results.append(SuperResolutionResult(p, original_shape))
+                results.append(SuperResolutionResult(p, original_shape, input_shape))
             break
         return results
