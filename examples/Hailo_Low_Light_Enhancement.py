@@ -4,7 +4,7 @@ import cv2
 
 if __name__ == "__main__":
     source = create_source(
-        "rtsp://admin:pass8679@192.168.66.28:554/Streaming/Channels/1"
+        "https://hailo-csdata.s3.eu-west-2.amazonaws.com/resources/video/example.mp4"
     )
 
     # Load Zero-DCE low light enhancement model

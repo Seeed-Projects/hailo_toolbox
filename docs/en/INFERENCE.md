@@ -12,233 +12,439 @@ Simply put, model inference is letting an AI model "look at" images or videos an
 
 ## Preparation
 
-### 1. Make sure you have the following files
+### 1. Make sure you have the following
 
-- ✅ **Converted model file** (`.hef` format)
-- ✅ **Test images or videos**
 - ✅ **Hailo Toolbox installed**
+- ✅ **Python environment ready**
+- ✅ **Test images or videos** (or use camera)
 
 ### 2. Check installation
 
-```bash
-# Verify tool is working properly
-hailo-toolbox --version
-
-# View help information
-hailo-toolbox infer --help
+```python
+# Verify installation in Python
+from hailo_toolbox.models import ModelsZoo
+from hailo_toolbox import create_source
+print("Hailo Toolbox is correctly installed!")
 ```
 
 ## Basic Inference Tutorial
 
-### Step 1: Simplest Inference
+### Step 1: Understand the Basic Structure
 
-Assuming you have a YOLOv8 object detection model, the simplest inference command is:
+All inference follows the same pattern:
 
-```bash
-hailo-toolbox infer your_model.hef --source test_image.jpg --task-name yolov8det
+```python
+from hailo_toolbox import create_source
+from hailo_toolbox.models import ModelsZoo
+
+# 1. Create input source
+source = create_source("your_input_source")
+
+# 2. Load model
+model = ModelsZoo.task_type.model_name()
+
+# 3. Process each frame
+for img in source:
+    results = model.predict(img)
+    for result in results:
+        # 4. Process results
+        print("Processing results...")
 ```
 
-**Explanation**:
-- `infer`: Start inference function
-- `your_model.hef`: Your model file
-- `--source test_image.jpg`: Image to analyze
-- `--task-name yolov8det`: Tell the system this is a YOLOv8 detection model
+### Step 2: Choose Input Source
 
-### Step 2: View Results in Real-time
+```python
+# Image file
+source = create_source("test_image.jpg")
 
-Add the `--show` parameter to see detection results in real-time:
+# Video file
+source = create_source("video.mp4")
 
-```bash
-hailo-toolbox infer your_model.hef \
-    --source test_image.jpg \
-    --task-name yolov8det \
-    --show
+# Camera (device ID usually 0)
+source = create_source(0)
+
+# Network camera
+source = create_source("rtsp://username:password@192.168.1.100:554/stream")
+
+# Image folder
+source = create_source("./images/")
+
+# Network video
+source = create_source("https://example.com/video.mp4")
 ```
 
-This will pop up a window showing detection results, press any key to close.
+## Supported Task Types and Examples
 
-### Step 3: Save Results
+### 1. Object Detection (Finding Objects)
 
-If you want to save detection results, use the `--save-dir` parameter:
+**Example File**: `examples/Hailo_Object_Detection.py`
 
-```bash
-hailo-toolbox infer your_model.hef \
-    --source test_image.jpg \
-    --task-name yolov8det \
-    --save-dir ./results
-```
+```python
+from hailo_toolbox import create_source
+from hailo_toolbox.models import ModelsZoo
+from hailo_toolbox.process.visualization import DetectionVisualization
+import cv2
 
-Results will be saved in the `results` folder.
-
-## Supported Input Types
-
-### 1. Image Files
-
-```bash
-# Single image
-hailo-toolbox infer model.hef --source photo.jpg --task-name yolov8det
-
-# Supported formats: JPG, PNG, BMP, TIFF, WebP
-hailo-toolbox infer model.hef --source image.png --task-name yolov8det
-```
-
-### 2. Image Folders
-
-```bash
-# Batch process all images in folder
-hailo-toolbox infer model.hef --source ./images/ --task-name yolov8det --save-dir ./results
-```
-
-### 3. Video Files
-
-```bash
-# Video file inference
-hailo-toolbox infer model.hef --source video.mp4 --task-name yolov8det --show
-
-# Supported formats: MP4, AVI, MOV, MKV, WebM
-hailo-toolbox infer model.hef --source movie.avi --task-name yolov8det
-```
-
-### 4. Real-time Camera Inference
-
-```bash
-# Use computer camera (device ID usually 0)
-hailo-toolbox infer model.hef --source 0 --task-name yolov8det --show
-
-# If you have multiple cameras, try other IDs
-hailo-toolbox infer model.hef --source 1 --task-name yolov8det --show
-```
-
-### 5. Network Cameras
-
-```bash
-# IP camera (RTSP stream)
-hailo-toolbox infer model.hef \
-    --source "rtsp://username:password@192.168.1.100:554/stream" \
-    --task-name yolov8det \
-    --show
-```
-
-## Supported Task Types
-
-### Object Detection (Finding Objects)
-
-```bash
-# YOLOv8 object detection
-hailo-toolbox infer yolov8_detection.hef \
-    --source image.jpg \
-    --task-name yolov8det \
-    --show
+if __name__ == "__main__":
+    # Create input source
+    source = create_source("test_video.mp4")  # or use 0 for camera
+    
+    # Load YOLOv8 detection model
+    inference = ModelsZoo.detection.yolov8s()
+    visualization = DetectionVisualization()
+    
+    for img in source:
+        results = inference.predict(img)
+        for result in results:
+            # Visualize results
+            img = visualization.visualize(img, result)
+            cv2.imshow("Detection", img)
+            cv2.waitKey(1)
+            
+            # Get detection results
+            boxes = result.get_boxes()      # Bounding boxes
+            scores = result.get_scores()    # Confidence scores
+            class_ids = result.get_class_ids()  # Class IDs
+            
+            print(f"Detected {len(result)} objects")
+            # Show first 5 detection results
+            for i in range(min(5, len(result))):
+                print(f"  Object{i}: bbox{boxes[i]}, score{scores[i]:.3f}, class{class_ids[i]}")
 ```
 
 **What it can detect**: People, cars, animals, daily objects, etc. (80 types of objects)
 
-### Instance Segmentation (Precise Contours)
+**Available Models**:
+- `ModelsZoo.detection.yolov8n()` - Fastest speed
+- `ModelsZoo.detection.yolov8s()` - Balanced speed and accuracy
+- `ModelsZoo.detection.yolov8m()` - Higher accuracy
+- `ModelsZoo.detection.yolov8l()` - High accuracy
+- `ModelsZoo.detection.yolov8x()` - Highest accuracy
 
-```bash
-# YOLOv8 instance segmentation
-hailo-toolbox infer yolov8_segmentation.hef \
-    --source image.jpg \
-    --task-name yolov8seg \
-    --show
+### 2. Instance Segmentation (Precise Contours)
+
+**Example File**: `examples/Hailo_Instance_Segmentation.py`
+
+```python
+from hailo_toolbox import create_source
+from hailo_toolbox.models import ModelsZoo
+from hailo_toolbox.process.visualization import SegmentationVisualization
+import cv2
+
+if __name__ == "__main__":
+    source = create_source("test_video.mp4")
+    
+    # Load YOLOv8 segmentation model
+    inference = ModelsZoo.segmentation.yolov8s_seg()
+    visualization = SegmentationVisualization()
+    
+    for img in source:
+        results = inference.predict(img)
+        for result in results:
+            # Visualize segmentation results
+            img = visualization.visualize(img, result)
+            cv2.imshow("Segmentation", img)
+            cv2.waitKey(1)
+            
+            # Get segmentation results
+            if hasattr(result, "masks") and result.masks is not None:
+                print(f"Segmentation mask shape: {result.masks.shape}")
+            
+            boxes = result.get_boxes_xyxy()  # Bounding boxes
+            scores = result.get_scores()     # Confidence scores
+            class_ids = result.get_class_ids()  # Class IDs
 ```
 
 **What it can do**: Not only find objects but also draw precise contours
 
-### Pose Estimation (Human Keypoints)
+**Available Models**:
+- `ModelsZoo.segmentation.yolov8n_seg()` - Fast segmentation
+- `ModelsZoo.segmentation.yolov8s_seg()` - Standard segmentation
+- `ModelsZoo.segmentation.yolov8m_seg()` - High accuracy segmentation
 
-```bash
-# YOLOv8 pose estimation
-hailo-toolbox infer yolov8_pose.hef \
-    --source image.jpg \
-    --task-name yolov8pe \
-    --show
+### 3. Pose Estimation (Human Keypoints)
+
+**Example File**: `examples/Hailo_Pose_Estimation.py`
+
+```python
+from hailo_toolbox import create_source
+from hailo_toolbox.models import ModelsZoo
+from hailo_toolbox.process.visualization import KeypointVisualization
+import cv2
+
+if __name__ == "__main__":
+    source = create_source("test_video.mp4")
+    
+    # Load YOLOv8 pose estimation model
+    inference = ModelsZoo.pose_estimation.yolov8s_pose()
+    visualization = KeypointVisualization()
+    
+    for img in source:
+        results = inference.predict(img)
+        for result in results:
+            # Visualize pose results
+            img = visualization.visualize(img, result)
+            cv2.imshow("Pose Estimation", img)
+            cv2.waitKey(1)
+            
+            print(f"Detected {len(result)} persons")
+            # Show pose information for first 3 persons
+            for i, person in enumerate(result):
+                if i >= 3:  # Only show first 3
+                    break
+                keypoints = person.get_keypoints()  # Keypoint coordinates
+                score = person.get_score()          # Person confidence
+                boxes = person.get_boxes()          # Bounding boxes
+                
+                print(f"  Person{i}: {len(keypoints)} keypoints, confidence{score[0]:.3f}")
 ```
 
 **What it can do**: Detect 17 human keypoints, analyze human poses and movements
+
+**Available Models**:
+- `ModelsZoo.pose_estimation.yolov8s_pose()` - Standard pose estimation
+- `ModelsZoo.pose_estimation.yolov8m_pose()` - High accuracy pose estimation
+
+### 4. Image Classification (Identify Main Objects)
+
+**Example File**: `examples/Hailo_Classification.py`
+
+```python
+from hailo_toolbox import create_source
+from hailo_toolbox.models import ModelsZoo
+
+if __name__ == "__main__":
+    source = create_source("test_image.jpg")
+    
+    # Load classification model
+    inference = ModelsZoo.classification.resnet18()
+    
+    for img in source:
+        results = inference.predict(img)
+        for result in results:
+            # Get classification results
+            class_name = result.get_class_name()        # Most likely class
+            confidence = result.get_score()             # Confidence score
+            top5_names = result.get_top_5_class_names() # Top 5 classes
+            top5_scores = result.get_top_5_scores()     # Top 5 scores
+            
+            print(f"Classification result: {class_name} (confidence: {confidence:.3f})")
+            print(f"Top5 classes: {top5_names}")
+            print(f"Top5 scores: {[f'{score:.3f}' for score in top5_scores]}")
+```
+
+**Available Models**:
+- `ModelsZoo.classification.mobilenetv1()` - Lightweight classification
+- `ModelsZoo.classification.resnet18()` - Classic classification model
+
+### 5. Face Detection
+
+**Example File**: `examples/Hailo_Face_Detection.py`
+
+```python
+from hailo_toolbox import create_source
+from hailo_toolbox.models import ModelsZoo
+import cv2
+
+def visualize_face_detection(img, boxes, scores, landmarks):
+    for i in range(len(boxes)):
+        box = boxes[i]
+        score = scores[i]
+        # Draw face box
+        cv2.rectangle(img, (int(box[0]), int(box[1])), 
+                     (int(box[2]), int(box[3])), (0, 255, 0), 2)
+    return img
+
+if __name__ == "__main__":
+    source = create_source("test_video.mp4")
+    
+    # Load face detection model
+    inference = ModelsZoo.face_detection.scrfd_10g()
+    
+    for img in source:
+        results = inference.predict(img)
+        for result in results:
+            print(f"Detected {len(result)} faces")
+            
+            boxes = result.get_boxes(pixel_coords=True)      # Face boxes
+            scores = result.get_scores()                     # Confidence scores
+            landmarks = result.get_landmarks(pixel_coords=True)  # Facial landmarks
+            
+            img = visualize_face_detection(img, boxes, scores, landmarks)
+            cv2.imshow("Face Detection", img)
+            cv2.waitKey(1)
+```
+
+**Available Models**:
+- `ModelsZoo.face_detection.scrfd_10g()` - High accuracy face detection
+- `ModelsZoo.face_detection.scrfd_2_5g()` - Balanced performance
+- `ModelsZoo.face_detection.scrfd_500m()` - Fast detection
+- `ModelsZoo.face_detection.retinaface_mbnet()` - Lightweight detection
+
+### 6. Depth Estimation
+
+**Example File**: `examples/Hailo_Depth_Estimation.py`
+
+```python
+from hailo_toolbox import create_source
+from hailo_toolbox.models import ModelsZoo
+import cv2
+
+if __name__ == "__main__":
+    source = create_source("test_video.mp4")
+    
+    # Load depth estimation model
+    inference = ModelsZoo.depth_estimation.fast_depth()
+    
+    for img in source:
+        results = inference.predict(img)
+        for result in results:
+            depth_map = result.get_depth()                    # Raw depth map
+            depth_normalized = result.get_depth_normalized()  # Normalized depth map
+            original_shape = result.get_original_shape()      # Original image size
+            
+            cv2.imshow("Depth Estimation", depth_normalized)
+            cv2.waitKey(1)
+            
+            print(f"Depth map shape: {depth_map.shape}")
+            print(f"Depth value range: [{depth_map.min():.3f}, {depth_map.max():.3f}]")
+            print(f"Original image size: {original_shape}")
+```
+
+**Available Models**:
+- `ModelsZoo.depth_estimation.fast_depth()` - Fast depth estimation
+- `ModelsZoo.depth_estimation.scdepthv3()` - High accuracy depth estimation
 
 ## Practical Usage Examples
 
 ### Example 1: Home Security Monitoring
 
-```bash
-# Use camera to detect intruders
-hailo-toolbox infer security_model.hef \
-    --source 0 \
-    --task-name yolov8det \
-    --show \
-    --save-dir ./security_logs
+```python
+from hailo_toolbox import create_source
+from hailo_toolbox.models import ModelsZoo
+from hailo_toolbox.process.visualization import DetectionVisualization
+import cv2
+import datetime
+
+def security_monitoring():
+    # Use camera
+    source = create_source(0)
+    inference = ModelsZoo.detection.yolov8s()
+    visualization = DetectionVisualization()
+    
+    for img in source:
+        results = inference.predict(img)
+        for result in results:
+            # Check for people
+            class_ids = result.get_class_ids()
+            if 0 in class_ids:  # 0 means person
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                cv2.imwrite(f"security_alert_{timestamp}.jpg", img)
+                print(f"Security Alert! Intruder detected - {timestamp}")
+            
+            img = visualization.visualize(img, result)
+            cv2.imshow("Security Monitor", img)
+            cv2.waitKey(1)
+
+if __name__ == "__main__":
+    security_monitoring()
 ```
 
-### Example 2: Traffic Monitoring
+### Example 2: Traffic Monitoring Analysis
 
-```bash
-# Analyze traffic video, detect vehicles and pedestrians
-hailo-toolbox infer traffic_model.hef \
-    --source traffic_video.mp4 \
-    --task-name yolov8det \
-    --save-dir ./traffic_analysis
+```python
+from hailo_toolbox import create_source
+from hailo_toolbox.models import ModelsZoo
+import cv2
+
+def traffic_analysis():
+    source = create_source("traffic_video.mp4")
+    inference = ModelsZoo.detection.yolov8m()
+    
+    vehicle_classes = [2, 3, 5, 7]  # car, motorcycle, bus, truck
+    
+    for img in source:
+        results = inference.predict(img)
+        for result in results:
+            class_ids = result.get_class_ids()
+            boxes = result.get_boxes()
+            
+            vehicle_count = sum(1 for class_id in class_ids if class_id in vehicle_classes)
+            person_count = sum(1 for class_id in class_ids if class_id == 0)
+            
+            print(f"Vehicle count: {vehicle_count}, Person count: {person_count}")
+            
+            # Visualize
+            for i, (box, class_id) in enumerate(zip(boxes, class_ids)):
+                if class_id in vehicle_classes or class_id == 0:
+                    color = (0, 255, 0) if class_id in vehicle_classes else (255, 0, 0)
+                    cv2.rectangle(img, (int(box[0]), int(box[1])), 
+                                (int(box[2]), int(box[3])), color, 2)
+            
+            cv2.imshow("Traffic Analysis", img)
+            cv2.waitKey(1)
+
+if __name__ == "__main__":
+    traffic_analysis()
 ```
 
 ### Example 3: Batch Image Processing
 
-```bash
-# Process all product images in folder
-hailo-toolbox infer product_detection.hef \
-    --source ./product_photos/ \
-    --task-name yolov8det \
-    --save-dir ./detection_results
+```python
+from hailo_toolbox import create_source
+from hailo_toolbox.models import ModelsZoo
+import cv2
+import os
+
+def batch_image_processing():
+    # Process all images in folder
+    source = create_source("./product_photos/")
+    inference = ModelsZoo.detection.yolov8n()
+    
+    os.makedirs("./detection_results", exist_ok=True)
+    
+    for i, img in enumerate(source):
+        results = inference.predict(img)
+        for result in results:
+            boxes = result.get_boxes()
+            scores = result.get_scores()
+            class_ids = result.get_class_ids()
+            
+            # Draw detection results on image
+            for box, score, class_id in zip(boxes, scores, class_ids):
+                cv2.rectangle(img, (int(box[0]), int(box[1])), 
+                            (int(box[2]), int(box[3])), (0, 255, 0), 2)
+                cv2.putText(img, f"Class{class_id}: {score:.2f}", 
+                          (int(box[0]), int(box[1])-10), 
+                          cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            
+            # Save results
+            cv2.imwrite(f"./detection_results/result_{i:04d}.jpg", img)
+            print(f"Processed: Image {i}, detected {len(result)} objects")
+
+if __name__ == "__main__":
+    batch_image_processing()
 ```
-
-### Example 4: Pose Estimation Analysis
-
-```bash
-# Analyze human poses in video
-hailo-toolbox infer pose_model.hef \
-    --source workout_video.mp4 \
-    --task-name yolov8pe \
-    --show \
-    --save-dir ./pose_analysis
-```
-
-## Inference Parameter Details
-
-### Required Parameters
-
-| Parameter | Description | Example |
-|-----------|-------------|---------|
-| `model` | Model file path | `yolov8n.hef` |
-| `--source` | Input source | `image.jpg`, `0`, `video.mp4` |
-
-### Important Optional Parameters
-
-| Parameter | Default | Description | Example |
-|-----------|---------|-------------|---------|
-| `--task-name` | `yolov8det` | Task type | `yolov8det`, `yolov8seg`, `yolov8pe` |
-| `--show` | No display | Display results in real-time | `--show` |
-| `--save-dir` | No save | Result save directory | `--save-dir ./results` |
-
-### Task Type Description
-
-| Task Name | Function | Applicable Models | Output Results |
-|-----------|----------|-------------------|----------------|
-| `yolov8det` | Object detection | YOLOv8 detection models | Bounding boxes + classes + confidence |
-| `yolov8seg` | Instance segmentation | YOLOv8 segmentation models | Segmentation masks + bounding boxes |
-| `yolov8pe` | Pose estimation | YOLOv8 pose models | Human keypoints + skeleton |
 
 ## Common Problem Solutions
 
 ### Q1: Shows "model file not found"
 
-**Problem**: `FileNotFoundError: model.hef not found`
+**Problem**: Model download failed or network issues
 
 **Solution**:
-```bash
-# Check if file exists
-ls -la your_model.hef
+```python
+# Check network connection
+import requests
+try:
+    response = requests.get("https://www.google.com", timeout=5)
+    print("Network connection is normal")
+except:
+    print("Network connection problem, please check network settings")
 
-# Use full path
-hailo-toolbox infer /full/path/to/model.hef --source image.jpg --task-name yolov8det
+# Manually download model (if automatic download fails)
+from hailo_toolbox.models import ModelsZoo
+model = ModelsZoo.detection.yolov8n()  # This will try to download the model
 ```
 
 ### Q2: Camera cannot be opened
@@ -246,197 +452,245 @@ hailo-toolbox infer /full/path/to/model.hef --source image.jpg --task-name yolov
 **Problem**: `Cannot open camera device 0`
 
 **Solution**:
-```bash
-# Try different device IDs
-hailo-toolbox infer model.hef --source 0 --task-name yolov8det  # First camera
-hailo-toolbox infer model.hef --source 1 --task-name yolov8det  # Second camera
+```python
+import cv2
 
-# Check available cameras on Linux
-ls /dev/video*
+# Test different camera IDs
+for i in range(5):
+    cap = cv2.VideoCapture(i)
+    if cap.isOpened():
+        print(f"Camera {i} is available")
+        cap.release()
+    else:
+        print(f"Camera {i} is not available")
+
+# Use available camera ID
+source = create_source(0)  # or use the found available ID
 ```
 
 ### Q3: Inference results are inaccurate
 
 **Possible causes and solutions**:
 
-1. **Task type mismatch**
-```bash
-# Make sure to use correct task-name
-# Detection models use yolov8det
-# Segmentation models use yolov8seg  
-# Pose models use yolov8pe
+1. **Input image quality issues**
+```python
+import cv2
+
+# Check image quality
+def check_image_quality(img):
+    if img is None:
+        print("Image is empty")
+        return False
+    
+    height, width = img.shape[:2]
+    if height < 100 or width < 100:
+        print(f"Image too small: {width}x{height}")
+        return False
+    
+    # Check brightness
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    brightness = gray.mean()
+    if brightness < 30:
+        print(f"Image too dark: brightness {brightness}")
+    elif brightness > 200:
+        print(f"Image too bright: brightness {brightness}")
+    
+    return True
 ```
 
-2. **Input image quality issues**
-- Ensure images are clear with sufficient lighting
-- Check if image size is appropriate
-- Avoid overly blurry or dark images
+2. **Choose appropriate model**
+```python
+# Choose model based on requirements
+# Speed priority: yolov8n
+# Balanced: yolov8s
+# Accuracy priority: yolov8m, yolov8l, yolov8x
 
-3. **Model conversion issues**
-- Re-convert model with better calibration dataset
-- Check conversion parameter settings
+inference = ModelsZoo.detection.yolov8s()  # Recommended balanced choice
+```
 
 ### Q4: Inference speed is very slow
 
 **Optimization suggestions**:
 
-1. **Reduce input resolution**
-```bash
-# If original image is large, you can scale it first
-# Or use smaller size models
+1. **Use smaller models**
+```python
+# Use the fastest model
+inference = ModelsZoo.detection.yolov8n()  # instead of yolov8x
 ```
 
-2. **Check hardware connection**
-- Ensure Hailo device is properly connected
-- Check if drivers are working normally
+2. **Reduce input resolution**
+```python
+import cv2
 
-3. **Reduce output saving**
-```bash
-# Don't save results during testing, only display
-hailo-toolbox infer model.hef --source video.mp4 --task-name yolov8det --show
+def resize_frame(img, max_size=640):
+    height, width = img.shape[:2]
+    if max(height, width) > max_size:
+        scale = max_size / max(height, width)
+        new_width = int(width * scale)
+        new_height = int(height * scale)
+        img = cv2.resize(img, (new_width, new_height))
+    return img
+
+# Resize image before inference
+for img in source:
+    img = resize_frame(img)
+    results = inference.predict(img)
+    # ...
 ```
 
-### Q5: Display window cannot be closed
+3. **Frame skipping**
+```python
+frame_skip = 2  # Process every 2nd frame
+frame_count = 0
 
-**Solution**:
-- Click on display window, then press any key
-- Or press `Ctrl+C` to force exit program
+for img in source:
+    frame_count += 1
+    if frame_count % frame_skip != 0:
+        continue
+    
+    results = inference.predict(img)
+    # Process results...
+```
 
 ## Performance Optimization Tips
 
-### 1. Choose Appropriate Input Source
+### 1. Choose Appropriate Models
 
-```bash
-# High quality images (slower)
---source high_resolution_image.jpg
+```python
+# Choose models based on application scenarios
+# Real-time applications: choose smaller models
+inference = ModelsZoo.detection.yolov8n()
 
-# Standard video (balanced)
---source standard_video.mp4
-
-# Low resolution stream (faster)
---source low_res_stream.mp4
+# Offline analysis: can choose larger models
+inference = ModelsZoo.detection.yolov8x()
 ```
 
-### 2. Reasonable Use of Display and Save
+### 2. Batch Processing Optimization
 
-```bash
-# Only display, no save (fastest)
---show
+```python
+# For image folders, no need for real-time display
+source = create_source("./images/")
+inference = ModelsZoo.detection.yolov8s()
 
-# Only save, no display (suitable for batch processing)
---save-dir ./results
-
-# Both display and save (slowest)
---show --save-dir ./results
+for i, img in enumerate(source):
+    results = inference.predict(img)
+    # Only process results, no display
+    for result in results:
+        # Save or record results
+        print(f"Image {i}: detected {len(result)} objects")
 ```
 
-### 3. Batch Processing Optimization
+### 3. Memory Management
 
-```bash
-# For batch processing, don't display in real-time
-hailo-toolbox infer model.hef \
-    --source ./image_folder/ \
-    --task-name yolov8det \
-    --save-dir ./batch_results
-    # Note: don't add --show parameter
+```python
+import gc
+
+# Periodic memory cleanup
+frame_count = 0
+for img in source:
+    results = inference.predict(img)
+    # Process results...
+    
+    frame_count += 1
+    if frame_count % 100 == 0:
+        gc.collect()  # Clean memory every 100 frames
 ```
 
 ## Understanding Inference Results
 
 ### Object Detection Results
 
-After inference completes, you will see:
-- **Bounding boxes**: Rectangular boxes marking detected objects
-- **Class labels**: Display object names (like "person", "car")
-- **Confidence**: Display detection confidence (like 0.85 means 85% confident)
+```python
+for result in results:
+    boxes = result.get_boxes()          # Bounding boxes [x1, y1, x2, y2]
+    scores = result.get_scores()        # Confidence scores [0.0-1.0]
+    class_ids = result.get_class_ids()  # Class IDs [0-79 for COCO]
+    
+    print(f"Detected {len(result)} objects")
+    for i in range(len(result)):
+        print(f"Object {i}: class{class_ids[i]}, confidence{scores[i]:.3f}")
+```
 
-### Instance Segmentation Results
+### Segmentation Results
 
-In addition to bounding boxes, you will also see:
-- **Color masks**: Use different colors to mark precise object contours
-- **Overlapping areas**: Can handle objects occluding each other
+```python
+for result in results:
+    if hasattr(result, "masks") and result.masks is not None:
+        masks = result.masks            # Segmentation masks
+        print(f"Mask shape: {masks.shape}")
+    
+    boxes = result.get_boxes_xyxy()     # Bounding boxes
+    scores = result.get_scores()        # Confidence scores
+```
 
 ### Pose Estimation Results
 
-Will display:
-- **Keypoints**: 17 important body parts (like head, shoulders, wrists, etc.)
-- **Skeleton connections**: Use lines to connect related keypoints
-- **Confidence**: Detection confidence for each keypoint
-
-## Advanced Usage
-
-### Using Python API
-
-If you're familiar with Python, you can also use it in code:
-
 ```python
-from hailo_toolbox.inference import InferenceEngine
-
-# Create inference engine
-engine = InferenceEngine(
-    model="your_model.hef",
-    source="test_image.jpg",
-    task_name="yolov8det",
-    show=True,
-    save_dir="./results"
-)
-
-# Run inference
-engine.run()
-```
-
-### Custom Model Support
-
-If you have custom models, you may need to implement corresponding post-processing functions. For detailed information, please refer to [Developer Documentation](DEV.md).
-
-## Inference Process Diagram
-
-```
-[Input Source] → [Preprocessing] → [Model Inference] → [Postprocessing] → [Result Display/Save]
-    ↓              ↓                ↓                  ↓                   ↓
-Images/Videos   Size adjustment    AI computation    Result parsing    Bounding boxes/Masks
+for result in results:
+    for person in result:
+        keypoints = person.get_keypoints()  # 17 keypoint coordinates
+        score = person.get_score()          # Person detection confidence
+        boxes = person.get_boxes()          # Person bounding boxes
+        
+        print(f"Keypoint count: {len(keypoints)}")
+        print(f"Person confidence: {score}")
 ```
 
 ## Summary
 
-Basic steps for model inference:
+Basic steps for model inference using Hailo Toolbox:
 
-1. **Prepare model file** (`.hef` format)
-2. **Prepare input data** (images, videos, or camera)
-3. **Choose correct task type** (`yolov8det`, `yolov8seg`, `yolov8pe`)
-4. **Run inference command**
-5. **View or save results**
+1. **Create input source** - Use `create_source()` function
+2. **Load model** - Choose appropriate model from `ModelsZoo`
+3. **Process data** - Iterate through each frame of input source
+4. **Get results** - Call model's `predict()` method
+5. **Process output** - Use various methods of result objects to get data
 
-**Remember this universal command**:
-```bash
-hailo-toolbox infer your_model.hef \
-    --source your_input \
-    --task-name yolov8det \
-    --show \
-    --save-dir ./results
+### Common Code Templates
+
+```python
+from hailo_toolbox import create_source
+from hailo_toolbox.models import ModelsZoo
+import cv2
+
+# Basic template
+def basic_inference():
+    source = create_source("your_input")
+    model = ModelsZoo.task_type.model_name()
+    
+    for img in source:
+        results = model.predict(img)
+        for result in results:
+            # Process results
+            print("Inference completed")
+
+# Template with visualization
+def inference_with_visualization():
+    source = create_source("your_input")
+    model = ModelsZoo.detection.yolov8s()
+    
+    for img in source:
+        results = model.predict(img)
+        for result in results:
+            # Draw results
+            boxes = result.get_boxes()
+            for box in boxes:
+                cv2.rectangle(img, (int(box[0]), int(box[1])), 
+                            (int(box[2]), int(box[3])), (0, 255, 0), 2)
+            
+            cv2.imshow("Results", img)
+            cv2.waitKey(1)
+
+if __name__ == "__main__":
+    basic_inference()
 ```
 
-### Common Command Quick Reference
-
-```bash
-# Image detection
-hailo-toolbox infer model.hef --source image.jpg --task-name yolov8det --show
-
-# Video analysis
-hailo-toolbox infer model.hef --source video.mp4 --task-name yolov8det --save-dir ./results
-
-# Real-time camera
-hailo-toolbox infer model.hef --source 0 --task-name yolov8det --show
-
-# Batch processing
-hailo-toolbox infer model.hef --source ./images/ --task-name yolov8det --save-dir ./results
-```
-
-Now you have mastered the basic skills of Hailo model inference! Start enjoying the convenience brought by AI!
+Now you have mastered the complete skills of Hailo model inference! Refer to the specific examples in the `examples/` folder to start your AI journey!
 
 ---
 
 **Related Documentation**: 
 - [Model Conversion Guide](CONVERT.md) - Learn how to convert models
 - [Developer Documentation](DEV.md) - Custom model development
-- [Quick Start](GET_STAR.md) - Complete installation and usage guide 
+- [Quick Start](GET_STAR.md) - Complete installation and usage guide
+- [Example Code](../examples/) - Complete inference examples 
