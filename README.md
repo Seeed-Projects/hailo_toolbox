@@ -1,5 +1,7 @@
  # Hailo Toolbox
 
+> **Language**: 🇺🇸 English | [🇨🇳 中文](README_zh.md)
+
 A comprehensive deep learning model conversion and inference toolkit designed specifically for Hailo AI processors. This project aims to simplify the AI application development workflow based on Hailo devices, providing developers with a one-stop solution from model conversion to deployment inference.
 
 - [Quick Start](docs/en/GET_STAR.md)
