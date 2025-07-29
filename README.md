@@ -15,13 +15,29 @@ A comprehensive deep learning model conversion and inference toolkit designed sp
 ### Requirements
 - Python 3.8 ≤ version < 3.12
 - Linux (recommended Ubuntu 18.04+), Windows 10+, macOS 10.15+
-- Hailo Dataflow Compiler (for model conversion)
-- HailoRT (for inference)
+- Hailo Dataflow Compiler (for model conversion) [Installation Tutorial](https://wiki.seeedstudio.com/tutorial_of_ai_kit_with_raspberrypi5_about_yolov8n_object_detection/)
+- HailoRT (for inference) [Installation Tutorial](https://wiki.seeedstudio.com/benchmark_on_rpi5_and_cm4_running_yolov8s_with_rpi_ai_kit/)
 
 ### Install from Source
 ```bash
+# Get project code
 git clone https://github.com/Seeed-Projects/hailo_toolbox.git
 cd hailo_toolbox
+# Install hailo-toolbox
+pip install -e .
+```
+
+### Install from Virtual Environment (Recommended)
+
+```bash
+# Create virtual environment
+python -m venv hailo_env
+# Activate virtual environment
+source hailo_env/bin/activate
+# Get project code
+git clone https://github.com/Seeed-Projects/hailo_toolbox.git
+cd hailo_toolbox
+# Install hailo-toolbox
 pip install -e .
 ```
 

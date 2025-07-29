@@ -16,13 +16,28 @@
 ### 要求
 - Python 3.8 ≤ 版本 < 3.12
 - Linux（推荐 Ubuntu 18.04+）、Windows 10+、macOS 10.15+
-- Hailo Dataflow Compiler（用于模型转换）
-- HailoRT（用于推理）
+- Hailo Dataflow Compiler（用于模型转换）[安装教程](https://wiki.seeedstudio.com/tutorial_of_ai_kit_with_raspberrypi5_about_yolov8n_object_detection/)
+- HailoRT（用于推理）[安装教程](https://wiki.seeedstudio.com/benchmark_on_rpi5_and_cm4_running_yolov8s_with_rpi_ai_kit/)
 
 ### 从源码安装
 ```bash
+# 获取项目代码
 git clone https://github.com/Seeed-Projects/hailo_toolbox.git
 cd hailo_toolbox
+# 安装hailo-toolbox
+pip install -e .
+```
+### 从虚拟环境安装(推荐)
+
+```bash
+# 创建虚拟环境
+python -m venv hailo_env
+# 激活虚拟环境
+source hailo_env/bin/activate
+# 获取项目代码
+git clone https://github.com/Seeed-Projects/hailo_toolbox.git
+cd hailo_toolbox
+# 安装hailo-toolbox
 pip install -e .
 ```
 
