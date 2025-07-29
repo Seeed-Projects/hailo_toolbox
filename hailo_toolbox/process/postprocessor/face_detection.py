@@ -337,7 +337,7 @@ class RetinafaceMBNetPostprocessor(BasePostprocessor):
         # Default parameters - inferred input size based on model output
         self.image_dims = (736, 1280)  # Inferred from output feature map sizes
         self.nms_iou_thresh = 0.6
-        self.score_threshold = 0.005  # Set more reasonable threshold
+        self.score_threshold = 0.5  # Set more reasonable threshold
 
         # Get parameters from config
         if config:
