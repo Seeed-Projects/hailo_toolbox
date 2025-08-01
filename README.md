@@ -12,11 +12,37 @@ A comprehensive deep learning model conversion and inference toolkit designed sp
 
 ## 📦 Installation
 
+### Hardware Prepare
+
+|                                               reComputer AI R2140                                              |                                               reComputer AI Industrial R2145                                              |
+| :----------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------: |
+| ![Raspberry Pi AI Kit](https://media-cdn.seeedstudio.com/media/catalog/product/cache/bb49d3ec4ee05b6f018e93f896b8a25d/i/m/image114993560.jpeg) | ![reComputer R1100](https://media-cdn.seeedstudio.com/media/catalog/product/cache/bb49d3ec4ee05b6f018e93f896b8a25d/2/-/2-114993595-recomputer-ai-industrial-r2135-12.jpg) |
+| [**Purchase Now**](https://www.seeedstudio.com/reComputer-AI-R2130-12-p-6368.html?utm_source=PiAICourse&utm_medium=github&utm_campaign=Course) | [**Purchase Now**](https://www.seeedstudio.com/reComputer-AI-Industrial-R2135-12-p-6432.html?utm_source=PiAICourse&utm_medium=github&utm_campaign=Course) |
+
+
 ### Requirements
 - Python 3.8 ≤ version < 3.12
 - Linux (recommended Ubuntu 18.04+), Windows 10+, macOS 10.15+
+
+### Hailo Dataflow Compiler
+
+> **Note:** You only need to install Hailo DFC on your own machine if you need to convert your own model
+
 - Hailo Dataflow Compiler (for model conversion) [Installation Tutorial](https://wiki.seeedstudio.com/tutorial_of_ai_kit_with_raspberrypi5_about_yolov8n_object_detection/)
-- HailoRT (for inference) [Installation Tutorial](https://wiki.seeedstudio.com/benchmark_on_rpi5_and_cm4_running_yolov8s_with_rpi_ai_kit/)
+
+### HailoRT 
+
+> **Note:** You can use command like below if you use reComputer
+
+```bash
+sudo apt update && sudo apt full-upgrade -y
+
+sudo apt install hailo-all -y
+```
+
+> **Note:** Other hardwares please follow tutorial below
+
+- HailoRT (for inference) [Installation Tutorial](https://wiki.seeedstudio.com/benchmark_of_multistream_inference_on_raspberrypi5_with_hailo8/#prepare-software)
 
 ### Install from Source
 ```bash
